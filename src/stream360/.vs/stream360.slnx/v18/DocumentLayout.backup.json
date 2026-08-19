@@ -6,6 +6,18 @@
       "AbsoluteMoniker": "D:0:0:{073F0B3C-DBA7-1BF4-803D-73C4476E663F}|..\\stream360benchmmarks\\stream360benchmmarks.csproj|c:\\dev\\stream360\\src\\stream360benchmmarks\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{CFD83ED1-0CE1-C4B1-E449-68899AFBC40D}|..\\stream360core\\stream360core.csproj|c:\\dev\\stream360\\src\\stream360core\\encoder\\nv12testframe.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CFD83ED1-0CE1-C4B1-E449-68899AFBC40D}|..\\stream360core\\stream360core.csproj|c:\\dev\\stream360\\src\\stream360core\\decoder\\mediafoundationdecoder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CFD83ED1-0CE1-C4B1-E449-68899AFBC40D}|..\\stream360core\\stream360core.csproj|c:\\dev\\stream360\\src\\stream360core\\stream360core.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CFD83ED1-0CE1-C4B1-E449-68899AFBC40D}|..\\stream360core\\stream360core.csproj|c:\\dev\\stream360\\src\\stream360core\\decoder\\ivideodecoder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{CFD83ED1-0CE1-C4B1-E449-68899AFBC40D}|..\\stream360core\\stream360core.csproj|c:\\dev\\stream360\\src\\stream360core\\encoder\\mediafoundationencoder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
@@ -19,12 +31,6 @@
     },
     {
       "AbsoluteMoniker": "D:0:0:{073F0B3C-DBA7-1BF4-803D-73C4476E663F}|..\\stream360benchmmarks\\stream360benchmmarks.csproj|c:\\dev\\stream360\\src\\stream360benchmmarks\\stream360benchmmarks.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{CFD83ED1-0CE1-C4B1-E449-68899AFBC40D}|..\\stream360core\\stream360core.csproj|c:\\dev\\stream360\\src\\stream360core\\stream360core.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{CFD83ED1-0CE1-C4B1-E449-68899AFBC40D}|..\\stream360core\\stream360core.csproj|c:\\dev\\stream360\\src\\stream360core\\encoder\\nv12testframe.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{CFD83ED1-0CE1-C4B1-E449-68899AFBC40D}|..\\stream360core\\stream360core.csproj|c:\\dev\\stream360\\src\\stream360core\\encoder\\encodercapability.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
@@ -50,15 +56,16 @@
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "MediaFoundationEncoder.cs",
-              "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\MediaFoundationEncoder.cs",
-              "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\MediaFoundationEncoder.cs",
-              "ToolTip": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\MediaFoundationEncoder.cs",
-              "RelativeToolTip": "..\\stream360core\\Encoder\\MediaFoundationEncoder.cs",
-              "ViewState": "AgIAAAgAAAAAAAAAAAAMwA4AAAAWAAAAAAAAAA==",
+              "DocumentIndex": 2,
+              "Title": "MediaFoundationDecoder.cs",
+              "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Decoder\\MediaFoundationDecoder.cs",
+              "RelativeDocumentMoniker": "..\\stream360core\\Decoder\\MediaFoundationDecoder.cs",
+              "ToolTip": "C:\\Dev\\stream360\\src\\stream360core\\Decoder\\MediaFoundationDecoder.cs",
+              "RelativeToolTip": "..\\stream360core\\Decoder\\MediaFoundationDecoder.cs",
+              "ViewState": "AgIAAD8BAAAAAAAAAIAuwEcBAAAZAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-08-19T14:25:30.921Z"
+              "WhenOpened": "2026-08-19T21:23:00.345Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -68,14 +75,14 @@
               "RelativeDocumentMoniker": "..\\stream360benchmmarks\\Program.cs",
               "ToolTip": "C:\\Dev\\stream360\\src\\stream360benchmmarks\\Program.cs",
               "RelativeToolTip": "..\\stream360benchmmarks\\Program.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAbAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAUAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-08-19T10:40:47.964Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 6,
               "Title": "IVideoEncoder.cs",
               "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\IVideoEncoder.cs",
               "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\IVideoEncoder.cs",
@@ -87,7 +94,58 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "stream360core.csproj",
+              "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\stream360core.csproj",
+              "RelativeDocumentMoniker": "..\\stream360core\\stream360core.csproj",
+              "ToolTip": "C:\\Dev\\stream360\\src\\stream360core\\stream360core.csproj",
+              "RelativeToolTip": "..\\stream360core\\stream360core.csproj",
+              "ViewState": "AgIAAAEAAAAAAAAAAAAqwBIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-08-19T10:48:16.066Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Nv12TestFrame.cs",
+              "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\Nv12TestFrame.cs",
+              "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\Nv12TestFrame.cs",
+              "ToolTip": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\Nv12TestFrame.cs",
+              "RelativeToolTip": "..\\stream360core\\Encoder\\Nv12TestFrame.cs",
+              "ViewState": "AgIAABcAAAAAAAAAAIAwwCgAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-08-19T15:42:59.905Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "MediaFoundationEncoder.cs",
+              "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\MediaFoundationEncoder.cs",
+              "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\MediaFoundationEncoder.cs",
+              "ToolTip": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\MediaFoundationEncoder.cs",
+              "RelativeToolTip": "..\\stream360core\\Encoder\\MediaFoundationEncoder.cs",
+              "ViewState": "AgIAAAgAAAAAAAAAAAAMwA4AAAAWAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-08-19T14:25:30.921Z"
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 4,
+              "Title": "IVideoDecoder.cs",
+              "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Decoder\\IVideoDecoder.cs",
+              "RelativeDocumentMoniker": "..\\stream360core\\Decoder\\IVideoDecoder.cs",
+              "ToolTip": "C:\\Dev\\stream360\\src\\stream360core\\Decoder\\IVideoDecoder.cs",
+              "RelativeToolTip": "..\\stream360core\\Decoder\\IVideoDecoder.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAWAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-08-19T21:22:40.069Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
               "Title": "EncoderDetector.cs",
               "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\EncoderDetector.cs",
               "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\EncoderDetector.cs",
@@ -99,7 +157,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 7,
               "Title": "EncoderInfo.cs",
               "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\EncoderInfo.cs",
               "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\EncoderInfo.cs",
@@ -111,7 +169,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 9,
               "Title": "stream360benchmmarks.csproj",
               "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360benchmmarks\\stream360benchmmarks.csproj",
               "RelativeDocumentMoniker": "..\\stream360benchmmarks\\stream360benchmmarks.csproj",
@@ -123,31 +181,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "stream360core.csproj",
-              "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\stream360core.csproj",
-              "RelativeDocumentMoniker": "..\\stream360core\\stream360core.csproj",
-              "ToolTip": "C:\\Dev\\stream360\\src\\stream360core\\stream360core.csproj",
-              "RelativeToolTip": "..\\stream360core\\stream360core.csproj",
-              "ViewState": "AgIAAAEAAAAAAAAAAAAqwBIAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2026-08-19T10:48:16.066Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "Nv12TestFrame.cs",
-              "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\Nv12TestFrame.cs",
-              "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\Nv12TestFrame.cs",
-              "ToolTip": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\Nv12TestFrame.cs",
-              "RelativeToolTip": "..\\stream360core\\Encoder\\Nv12TestFrame.cs",
-              "ViewState": "AgIAACYAAAAAAAAAAAAOwCcAAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-08-19T15:42:59.905Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 10,
               "Title": "EncoderCapability.cs",
               "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\EncoderCapability.cs",
               "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\EncoderCapability.cs",
@@ -159,7 +193,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 11,
               "Title": "EncoderCapabilityDetector.cs",
               "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Encoder\\EncoderCapabilityDetector.cs",
               "RelativeDocumentMoniker": "..\\stream360core\\Encoder\\EncoderCapabilityDetector.cs",
@@ -171,7 +205,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 12,
               "Title": "GraphicsDeviceDetector.cs",
               "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Detection\\GraphicsDeviceDetector.cs",
               "RelativeDocumentMoniker": "..\\stream360core\\Detection\\GraphicsDeviceDetector.cs",
@@ -183,7 +217,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 13,
               "Title": "GraphicsDeviceInfo.cs",
               "DocumentMoniker": "C:\\Dev\\stream360\\src\\stream360core\\Detection\\GraphicsDeviceInfo.cs",
               "RelativeDocumentMoniker": "..\\stream360core\\Detection\\GraphicsDeviceInfo.cs",

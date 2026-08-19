@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("stream360core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e76db0b40ae9352ba446a84bd106ebf51080d3f7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+059294b6d9ed903fe91703cd991a615da7b96441")]
 [assembly: System.Reflection.AssemblyProductAttribute("stream360core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("stream360core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
