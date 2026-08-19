@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("stream360benchmmarks")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+109ae345c2f7298dcd245f9bb52bd9c54cc73528")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e76db0b40ae9352ba446a84bd106ebf51080d3f7")]
 [assembly: System.Reflection.AssemblyProductAttribute("stream360benchmmarks")]
 [assembly: System.Reflection.AssemblyTitleAttribute("stream360benchmmarks")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

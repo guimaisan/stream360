@@ -1,11 +1,21 @@
-﻿using Vortice.MediaFoundation;
+﻿
+using System.Runtime.InteropServices;
+using Vortice.MediaFoundation;
 
 namespace Stream360.Core.Encoder;
 
 public sealed class MediaFoundationEncoder : IVideoEncoder
 {
+    private readonly Queue<byte[]> _pendingOutput = new();
+
     private IMFTransform? _transform;
+    private IMFMediaEventGenerator? _eventGenerator;
     private bool _mediaFoundationStarted;
+
+    private int _width;
+    private int _height;
+    private int _fps;
+    private long _nextTimestamp;
 
     public EncoderInfo Info { get; }
 
@@ -25,8 +35,7 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
         if (IsInitialized)
             return;
 
-        if (!string.Equals(
-                Info.Codec,
+        if (!Info.Codec.Equals(
                 "H.264",
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -40,7 +49,12 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
 
         try
         {
-            // Find the exact encoder activation again.
+            _width = width;
+            _height = height;
+            _fps = fps;
+            _nextTimestamp = 0;
+            _pendingOutput.Clear();
+
             var activates = MediaFactory.MFTEnumEx(
                 TransformCategoryGuids.VideoEncoder,
                 (uint)EnumFlag.EnumFlagHardware,
@@ -51,8 +65,9 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
 
             foreach (var activate in activates)
             {
-                var name = activate.GetString(
-                    TransformAttributeKeys.MftFriendlyNameAttribute);
+                var name =
+                    activate.GetString(
+                        TransformAttributeKeys.MftFriendlyNameAttribute);
 
                 if (string.Equals(
                         name,
@@ -82,7 +97,6 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                 selected.Dispose();
             }
 
-            // Unlock asynchronous hardware MFTs.
             try
             {
                 _transform.Attributes.Set(
@@ -91,12 +105,11 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
             }
             catch
             {
-                // Some MFTs don't require async unlocking.
+                // Some encoders do not require this.
             }
 
-            // ---------------------------------------------------------
-            // OUTPUT: use a type advertised by the actual encoder.
-            // ---------------------------------------------------------
+            _eventGenerator =
+                _transform.QueryInterface<IMFMediaEventGenerator>();
 
             IMFMediaType? outputType = null;
 
@@ -136,33 +149,31 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
             if (outputType == null)
             {
                 throw new InvalidOperationException(
-                    "The selected encoder did not provide an H.264 output type.");
+                    "The encoder did not advertise an H.264 output type.");
             }
 
             using (outputType)
             {
-                using var outputAttributes =
+                using var attributes =
                     outputType.QueryInterface<IMFAttributes>();
 
-                // Modify the encoder-provided type instead of constructing
-                // a completely new one.
-                outputAttributes.Set(
+                attributes.Set(
                     MediaTypeAttributeKeys.FrameSize,
                     MediaFactory.PackSize(
                         (uint)width,
                         (uint)height));
 
-                outputAttributes.Set(
+                attributes.Set(
                     MediaTypeAttributeKeys.FrameRate,
                     MediaFactory.PackRatio(
-                        fps,
+                        (int)fps,
                         1));
 
-                outputAttributes.Set(
+                attributes.Set(
                     MediaTypeAttributeKeys.AvgBitrate,
                     (uint)bitrate);
 
-                outputAttributes.Set(
+                attributes.Set(
                     MediaTypeAttributeKeys.InterlaceMode,
                     (uint)VideoInterlaceMode.Progressive);
 
@@ -171,10 +182,6 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                     outputType,
                     0);
             }
-
-            // ---------------------------------------------------------
-            // INPUT: find an NV12 type advertised by the encoder.
-            // ---------------------------------------------------------
 
             IMFMediaType? inputType = null;
 
@@ -214,27 +221,27 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
             if (inputType == null)
             {
                 throw new InvalidOperationException(
-                    "The selected encoder did not advertise NV12 input.");
+                    "The encoder did not advertise NV12 input.");
             }
 
             using (inputType)
             {
-                using var inputAttributes =
+                using var attributes =
                     inputType.QueryInterface<IMFAttributes>();
 
-                inputAttributes.Set(
+                attributes.Set(
                     MediaTypeAttributeKeys.FrameSize,
                     MediaFactory.PackSize(
                         (uint)width,
                         (uint)height));
 
-                inputAttributes.Set(
+                attributes.Set(
                     MediaTypeAttributeKeys.FrameRate,
                     MediaFactory.PackRatio(
-                        fps,
+                        (int)fps,
                         1));
 
-                inputAttributes.Set(
+                attributes.Set(
                     MediaTypeAttributeKeys.InterlaceMode,
                     (uint)VideoInterlaceMode.Progressive);
 
@@ -243,6 +250,14 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                     inputType,
                     0);
             }
+
+            _transform.ProcessMessage(
+                TMessageType.MessageNotifyBeginStreaming,
+                UIntPtr.Zero);
+
+            _transform.ProcessMessage(
+                TMessageType.MessageNotifyStartOfStream,
+                UIntPtr.Zero);
 
             IsInitialized = true;
 
@@ -257,48 +272,365 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
         }
         catch
         {
-            _transform?.Dispose();
-            _transform = null;
-
-            if (_mediaFoundationStarted)
-            {
-                MediaFactory.MFShutdown();
-                _mediaFoundationStarted = false;
-            }
-
+            Stop();
             throw;
         }
     }
 
-    public byte[] EncodeFrame(ReadOnlySpan<byte> frame)
+    public void SubmitFrame(
+        ReadOnlySpan<byte> frame)
     {
-        if (!IsInitialized || _transform == null)
+        if (!IsInitialized ||
+            _transform == null ||
+            _eventGenerator == null)
         {
             throw new InvalidOperationException(
                 "Encoder has not been initialized.");
         }
 
-        throw new NotImplementedException(
-            "Actual NV12 frame encoding is the next step.");
+        int expectedSize =
+            _width *
+            _height *
+            3 /
+            2;
+
+        if (frame.Length != expectedSize)
+        {
+            throw new ArgumentException(
+                $"Expected {expectedSize:N0} NV12 bytes, " +
+                $"received {frame.Length:N0}.");
+        }
+
+        while (true)
+        {
+            using var mediaEvent =
+                _eventGenerator.GetEvent(0);
+
+            string eventName =
+                mediaEvent.EventType.ToString();
+
+            if (eventName.Contains(
+                    "TransformNeedInput",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                using var inputBuffer =
+                    MediaFactory.MFCreateMemoryBuffer(
+                        frame.Length);
+
+                inputBuffer.Lock(
+                    out IntPtr inputData,
+                    out int inputMaxLength,
+                    out int inputCurrentLength);
+
+                try
+                {
+                    byte[] frameBytes =
+                        frame.ToArray();
+
+                    Marshal.Copy(
+                        frameBytes,
+                        0,
+                        inputData,
+                        frameBytes.Length);
+                }
+                finally
+                {
+                    inputBuffer.Unlock();
+                }
+
+                inputBuffer.CurrentLength =
+                    frame.Length;
+
+                using var inputSample =
+                    MediaFactory.MFCreateSample();
+
+                inputSample.AddBuffer(
+                    inputBuffer);
+
+                long frameDuration =
+                    10_000_000L / _fps;
+
+                inputSample.SampleTime =
+                    _nextTimestamp;
+
+                inputSample.SampleDuration =
+                    frameDuration;
+
+                _nextTimestamp +=
+                    frameDuration;
+
+                _transform.ProcessInput(
+                    0,
+                    inputSample,
+                    0);
+
+                return;
+            }
+
+            if (eventName.Contains(
+                    "TransformHaveOutput",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                byte[]? output =
+                    ProcessOneOutput();
+
+                if (output != null &&
+                    output.Length > 0)
+                {
+                    _pendingOutput.Enqueue(output);
+                }
+
+                continue;
+            }
+        }
     }
 
-    public void Flush()
+    private byte[]? ProcessOneOutput()
     {
-        if (!IsInitialized || _transform == null)
-            return;
+        if (_transform == null)
+            return null;
 
+        var streamInfo =
+            _transform.GetOutputStreamInfo(0);
+
+        const int ProvidesSamples = 0x100;
+
+        bool mftProvidesSamples =
+            (streamInfo.Flags & ProvidesSamples) != 0;
+
+        IMFMediaBuffer? outputBuffer = null;
+        IMFSample? outputSample = null;
+
+        try
+        {
+            if (!mftProvidesSamples)
+            {
+                int outputSize =
+                    Math.Max(
+                        streamInfo.Size,
+                        1_048_576);
+
+                outputBuffer =
+                    MediaFactory.MFCreateMemoryBuffer(
+                        outputSize);
+
+                outputSample =
+                    MediaFactory.MFCreateSample();
+
+                outputSample.AddBuffer(
+                    outputBuffer);
+            }
+
+            var outputData =
+                new OutputDataBuffer
+                {
+                    StreamID = 0,
+                    Sample = outputSample,
+                    Status = 0,
+                    Events = null
+                };
+
+            var status =
+                default(ProcessOutputStatus);
+
+            _transform.ProcessOutput(
+                ProcessOutputFlags.None,
+                1,
+                ref outputData,
+                out status);
+
+            if (outputData.Status == 0x100)
+            {
+                ReconfigureOutputType();
+                return null;
+            }
+
+            if (outputData.Status == 0x300 ||
+                outputData.Sample == null)
+            {
+                return null;
+            }
+
+            using var encodedBuffer =
+                outputData.Sample.GetBufferByIndex(0);
+
+            encodedBuffer.Lock(
+                out IntPtr encodedData,
+                out int encodedMaxLength,
+                out int encodedCurrentLength);
+
+            try
+            {
+                var result =
+                    new byte[encodedCurrentLength];
+
+                Marshal.Copy(
+                    encodedData,
+                    result,
+                    0,
+                    encodedCurrentLength);
+
+                return result;
+            }
+            finally
+            {
+                encodedBuffer.Unlock();
+            }
+        }
+        finally
+        {
+            outputSample?.Dispose();
+            outputBuffer?.Dispose();
+        }
+    }
+
+    private void ReconfigureOutputType()
+    {
+        if (_transform == null)
+        {
+            throw new InvalidOperationException(
+                "Encoder transform is unavailable.");
+        }
+
+        for (int i = 0; i < 20; i++)
+        {
+            try
+            {
+                var candidate =
+                    _transform.GetOutputAvailableType(0, i);
+
+                using var attributes =
+                    candidate.QueryInterface<IMFAttributes>();
+
+                var major =
+                    attributes.GetGUID(
+                        MediaTypeAttributeKeys.MajorType);
+
+                var subtype =
+                    attributes.GetGUID(
+                        MediaTypeAttributeKeys.Subtype);
+
+                if (major == MediaTypeGuids.Video &&
+                    subtype == VideoFormatGuids.H264)
+                {
+                    _transform.SetOutputType(
+                        0,
+                        candidate,
+                        0);
+
+                    return;
+                }
+
+                candidate.Dispose();
+            }
+            catch
+            {
+                break;
+            }
+        }
+
+        throw new InvalidOperationException(
+            "The encoder requested an output format change, " +
+            "but no usable H.264 output type was available.");
+    }
+
+    public bool TryGetEncodedFrame(
+        out byte[]? encodedFrame)
+    {
+        if (_pendingOutput.Count > 0)
+        {
+            encodedFrame =
+                _pendingOutput.Dequeue();
+
+            return true;
+        }
+
+        encodedFrame = null;
+        return false;
+    }
+
+ 
+public void Flush()
+    {
+        if (!IsInitialized ||
+            _transform == null ||
+            _eventGenerator == null)
+        {
+            throw new InvalidOperationException(
+                "Encoder has not been initialized.");
+        }
+
+        // Tell the asynchronous MFT to process everything it
+        // currently has buffered. Stream 0 is the input stream
+        // we are draining.
         _transform.ProcessMessage(
             TMessageType.MessageCommandDrain,
             UIntPtr.Zero);
+
+        while (true)
+        {
+            using var mediaEvent =
+                _eventGenerator.GetEvent(0);
+
+            string eventName =
+                mediaEvent.EventType.ToString();
+
+            if (eventName.Contains(
+                    "TransformHaveOutput",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                byte[]? output =
+                    ProcessOneOutput();
+
+                if (output != null &&
+                    output.Length > 0)
+                {
+                    _pendingOutput.Enqueue(output);
+                }
+
+                continue;
+            }
+
+            if (eventName.Contains(
+                    "TransformDrainComplete",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+        }
+    }
+
+
+
+    public bool TryGetFlushedFrame(
+        out byte[]? encodedFrame)
+    {
+        return TryGetEncodedFrame(
+            out encodedFrame);
     }
 
     public void Stop()
     {
-        if (_transform != null)
+        if (_transform != null &&
+            IsInitialized)
         {
-            _transform.Dispose();
-            _transform = null;
+            try
+            {
+                _transform.ProcessMessage(
+                    TMessageType.MessageNotifyEndOfStream,
+                    UIntPtr.Zero);
+            }
+            catch
+            {
+                // Ignore shutdown errors.
+            }
         }
+
+        _eventGenerator?.Dispose();
+        _eventGenerator = null;
+
+        _transform?.Dispose();
+        _transform = null;
 
         if (_mediaFoundationStarted)
         {
@@ -307,6 +639,8 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
         }
 
         IsInitialized = false;
+        _pendingOutput.Clear();
+        _nextTimestamp = 0;
     }
 
     public void Dispose()

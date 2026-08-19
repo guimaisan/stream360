@@ -13,10 +13,16 @@ public interface IVideoEncoder : IDisposable
         int fps,
         int bitrate);
 
-    byte[] EncodeFrame(
+    void SubmitFrame(
         ReadOnlySpan<byte> frame);
 
+    bool TryGetEncodedFrame(
+        out byte[]? encodedFrame);
+
     void Flush();
+
+    bool TryGetFlushedFrame(
+        out byte[]? encodedFrame);
 
     void Stop();
 }
