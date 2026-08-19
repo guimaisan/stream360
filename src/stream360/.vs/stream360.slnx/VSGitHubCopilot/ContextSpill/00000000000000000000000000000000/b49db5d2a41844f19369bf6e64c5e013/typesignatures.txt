@@ -1,0 +1,226 @@
+﻿## SIGNATURES OF RELEVANT TYPES REFERENCED IN THE CODE:
+
+```csharp
+
+public class IMFMediaType : IMFAttributes, IEnlightenedDisposable, IEquatable<CppObject>, IUnknown, ICallbackable, IDisposable
+{
+  public int IsEqual(IMFMediaType iMediaType);
+  public nint GetRepresentation(Guid guidRepresentation);
+  public void FreeRepresentation(Guid guidRepresentation, nint representation);
+  public Guid MajorType { get; }
+  public RawBool IsCompressedFormat { get; }
+}
+
+public class IMFAttributes : ComObject, IEnlightenedDisposable, IEquatable<CppObject>, IUnknown, ICallbackable, IDisposable
+{
+  public Span<byte> GetAllocatedBlob(Guid guidKey);
+  public string? GetAllocatedString(Guid guidKey);
+  public Result GetBlob(Guid guidKey, byte[] buffer);
+  public byte[] GetBlob(Guid guidKey);
+  public Result GetBlob(Guid guidKey, Span<byte> buffer);
+  public uint GetUInt32(Guid guidKey);
+  public T GetEnumValue<T>(Guid guidKey) where T : unmanaged, Enum;
+  public T GetEnumValue<T>(MediaAttributeKey<T> key) where T : unmanaged, Enum;
+  public ulong GetUInt64(Guid guidKey);
+  public double GetDouble(Guid guidKey);
+  public Guid GetGUID(Guid guidKey);
+  public string GetString(Guid guidKey);
+  public string GetString(MediaAttributeKey guidKey);
+  public uint GetBlobSize(Guid guidKey);
+  public ComObject? GetUnknown(Guid guidKey);
+  public T? GetUnknown<T>(Guid guidKey) where T : ComObject;
+  public Result GetUnknown<T>(Guid guidKey, out T? unknown) where T : ComObject;
+  public T? GetICallbackable<T>(Guid guidKey) where T : ICallbackable;
+  public Variant GetItemByIndex(uint index, out Guid guidKey);
+  public Result Set(Guid guidKey, bool value);
+  public Result Set(Guid guidKey, float value);
+  public Result SetEnumValue<T>(Guid guidKey, T value) where T : unmanaged, Enum;
+  public Result SetEnumValue<T>(MediaAttributeKey<T> key, T value) where T : unmanaged, Enum;
+  public Result SetBlob(Guid guidKey, byte[] buffer);
+  public Result SetBlob(Guid guidKey, Span<byte> buffer);
+  public Result SetBlob<T>(Guid guidKey, ref T value) where T : unmanaged;
+  public AttributeType GetItemType(Guid guidKey);
+  public RawBool Compare(IMFAttributes theirs, AttributesMatchType matchType);
+  public Result GetUInt32(Guid guidKey, out uint punValue);
+  public Result GetUInt64(Guid guidKey, out ulong punValue);
+  public Result GetDouble(Guid guidKey, out double pfValue);
+  public Result GetGUID(Guid guidKey, out Guid pguidValue);
+  public Result GetBlobSize(Guid guidKey, out uint pcbBlobSize);
+  public Result SetItem(Guid guidKey, Variant value);
+  public Result DeleteItem(Guid guidKey);
+  public Result DeleteAllItems();
+  public Result Set(Guid guidKey, uint unValue);
+  public Result Set(Guid guidKey, ulong unValue);
+  public Result Set(Guid guidKey, double value);
+  public Result Set(Guid guidKey, Guid guidValue);
+  public Result Set(Guid guidKey, string value);
+  public Result Set(Guid guidKey, IUnknown unknown);
+  public Result LockStore();
+  public Result UnlockStore();
+  public Result CopyAllItems(IMFAttributes dest);
+  public string FriendlyName { get; set; }
+  public Guid SourceType { get; set; }
+  public bool IsAudioDevice { get; }
+  public RegisterTypeInfo MediaType { get; set; }
+  public string AudioEndPointID { get; set; }
+  public Guid VideoDeviceCategory { get; set; }
+  public bool VideoDeviceIsHardware { get; set; }
+  public string SymbolicLink { get; set; }
+  public AudioStreamCategory AudioCategory { get; set; }
+  public AudioEndpointRole AudioEndpointRole { get; set; }
+  public MediaEngineProtectionFlags ContentProtectionFlags { get; set; }
+  public ComObject? ContentProtectionManager { get; set; }
+  public IMFDXGIDeviceManager? DxgiManager { get; set; }
+  public IMFMediaEngineExtension? Extension { get; set; }
+  public IMFSourceReaderCallback? AsyncCallback { get; set; }
+  public Format VideoOutputFormat { get; set; }
+  public uint Count { get; }
+}
+
+public class ComObject : CppObject, IEnlightenedDisposable, IEquatable<CppObject>, IUnknown, ICallbackable, IDisposable
+{
+  public Result QueryInterface(Guid riid, out nint ppvObject);
+  public uint AddRef();
+  public uint Release();
+  public virtual nint QueryInterfaceOrNull(Guid guid);
+  public virtual T QueryInterface<T>() where T : ComObject;
+  public static T As<T>(object comObject) where T : ComObject;
+  public static T As<T>(nint iunknownPtr) where T : ComObject;
+  public static T QueryInterface<T>(object comObject) where T : ComObject;
+  public static T? QueryInterfaceOrNull<T>(nint comPointer) where T : ComObject;
+  public virtual T? QueryInterfaceOrNull<T>() where T : ComObject;
+  protected void QueryInterfaceFrom<T>(T fromObject) where T : ComObject;
+  protected override void DisposeCore(nint nativePointer, bool disposing);
+}
+
+public class CppObject : DisposeBase, IEnlightenedDisposable, ICallbackable, IDisposable, IEquatable<CppObject>
+{
+  public override string ToString();
+  protected virtual void NativePointerUpdated(nint oldNativePointer);
+  protected override sealed void Dispose(bool disposing);
+  protected virtual void DisposeCore(nint nativePointer, bool disposing);
+  public bool Equals(CppObject other);
+  public override bool Equals(object obj);
+  public override int GetHashCode();
+  public object Tag { get; set; }
+  public nint NativePointer { get; set; }
+  protected override bool IsDisposed { get; }
+}
+
+public abstract class DisposeBase : CriticalFinalizerObject, IEnlightenedDisposable, IDisposable
+{
+  protected ~DisposeBase();
+  public void Dispose();
+  protected abstract void Dispose(bool disposing);
+  protected abstract bool IsDisposed { get; }
+  public event DisposeEventHandler Disposing;
+  public event DisposeEventHandler Disposed;
+}
+
+public interface IEnlightenedDisposable
+{
+  void CheckAndDispose(bool disposing);
+}
+
+public interface ICallbackable : IDisposable
+{
+}
+
+public interface IUnknown : ICallbackable, IDisposable
+{
+}
+
+public static class MediaTypeAttributeKeys
+{
+  public static readonly Guid AacAudioProfileLevelIndication;
+  public static readonly Guid AacPayloadType;
+  public static readonly Guid AllSamplesIndependent;
+  public static readonly Guid AmFormatType;
+  public static readonly Guid ArbitraryFormat;
+  public static readonly Guid ArbitraryHeader;
+  public static readonly Guid AudioAvgBytesPerSecond;
+  public static readonly Guid AudioBitsPerSample;
+  public static readonly Guid AudioBlockAlignment;
+  public static readonly Guid AudioChannelMask;
+  public static readonly Guid AudioFloatSamplesPerSecond;
+  public static readonly Guid AudioFolddownMatrix;
+  public static readonly Guid AudioNumChannels;
+  public static readonly Guid AudioPreferWaveformatex;
+  public static readonly Guid AudioSamplesPerBlock;
+  public static readonly Guid AudioSamplesPerSecond;
+  public static readonly Guid AudioValidBitsPerSample;
+  public static readonly Guid AudioWmadrcAvgref;
+  public static readonly Guid AudioWmadrcAvgtarget;
+  public static readonly Guid AudioWmadrcPeakref;
+  public static readonly Guid AudioWmadrcPeaktarget;
+  public static readonly Guid AvgBitErrorRate;
+  public static readonly Guid AvgBitrate;
+  public static readonly Guid Compressed;
+  public static readonly Guid CustomVideoPrimaries;
+  public static readonly Guid DefaultStride;
+  public static readonly Guid DrmFlags;
+  public static readonly Guid DvAauxCtrlPack0;
+  public static readonly Guid DvAauxCtrlPack1;
+  public static readonly Guid DvAauxSrcPack0;
+  public static readonly Guid DvAauxSrcPack1;
+  public static readonly Guid DvVauxCtrlPack;
+  public static readonly Guid DvVauxSrcPack;
+  public static readonly Guid FixedSizeSamples;
+  public static readonly Guid FrameRate;
+  public static readonly Guid FrameRateRangeMax;
+  public static readonly Guid FrameRateRangeMin;
+  public static readonly Guid FrameSize;
+  public static readonly Guid GeometricAperture;
+  public static readonly Guid H264Capabilities;
+  public static readonly Guid H264MaxCodecConfigDelay;
+  public static readonly Guid H264MaxMbPerSec;
+  public static readonly Guid H264RateControlModes;
+  public static readonly Guid H264SimulcastSupport;
+  public static readonly Guid H264SupportedRateControlModes;
+  public static readonly Guid H264SupportedSliceModes;
+  public static readonly Guid H264SupportedSyncFrameTypes;
+  public static readonly Guid H264SupportedUsages;
+  public static readonly Guid H264SvcCapabilities;
+  public static readonly Guid H264Usage;
+  public static readonly Guid ImageLossTolerant;
+  public static readonly Guid InterlaceMode;
+  public static readonly Guid MajorType;
+  public static readonly Guid MaxKeyframeSpacing;
+  public static readonly Guid MinimumDisplayAperture;
+  public static readonly Guid MpegSequenceHeader;
+  public static readonly Guid MpegStartTimeCode;
+  public static readonly Guid Mpeg2ContentPACKET;
+  public static readonly Guid Mpeg2Flags;
+  public static readonly Guid Mpeg2Level;
+  public static readonly Guid Mpeg2Profile;
+  public static readonly Guid Mpeg2STANDARD;
+  public static readonly Guid Mpeg2TIMECODE;
+  public static readonly Guid Mpeg4CurrentSampleEntry;
+  public static readonly Guid Mpeg4SampleDescription;
+  public static readonly Guid Original4cc;
+  public static readonly Guid OriginalWaveFormatTag;
+  public static readonly Guid PadControlFlags;
+  public static readonly Guid Palette;
+  public static readonly Guid PanScanAperture;
+  public static readonly Guid PanScanEnabled;
+  public static readonly Guid PixelAspectRatio;
+  public static readonly Guid SampleSize;
+  public static readonly Guid SourceContentHint;
+  public static readonly Guid Subtype;
+  public static readonly Guid TimestampCanBeDTS;
+  public static readonly Guid TransferFunction;
+  public static readonly Guid UserData;
+  public static readonly Guid Video3d;
+  public static readonly Guid Video3dFirstIsLeft;
+  public static readonly Guid Video3dFormat;
+  public static readonly Guid Video3dLeftIsBase;
+  public static readonly Guid Video3dNumViews;
+  public static readonly Guid VideoChromaSiting;
+  public static readonly Guid VideoLighting;
+  public static readonly Guid VideoNominalRange;
+  public static readonly Guid VideoPrimaries;
+  public static readonly Guid VideoRotation;
+  public static readonly Guid WrappedType;
+  public static readonly Guid YuvMatrix;
+}
+```

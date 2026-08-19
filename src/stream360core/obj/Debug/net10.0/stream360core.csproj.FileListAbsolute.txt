@@ -1,0 +1,13 @@
+C:\Dev\stream360\src\stream360core\bin\Debug\net10.0\stream360core.deps.json
+C:\Dev\stream360\src\stream360core\bin\Debug\net10.0\stream360core.dll
+C:\Dev\stream360\src\stream360core\bin\Debug\net10.0\stream360core.pdb
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\stream360core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\stream360core.AssemblyInfoInputs.cache
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\stream360core.AssemblyInfo.cs
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\stream360core.csproj.CoreCompileInputs.cache
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\stream360core.sourcelink.json
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\stream360core.dll
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\refint\stream360core.dll
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\stream360core.pdb
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\ref\stream360core.dll
+C:\Dev\stream360\src\stream360core\obj\Debug\net10.0\stream360core.csproj.AssemblyReference.cache

@@ -1,0 +1,134 @@
+﻿using Vortice.MediaFoundation;
+
+Console.WriteLine("Stream360 H.264 Encoder Capabilities");
+Console.WriteLine("====================================");
+Console.WriteLine();
+
+MediaFactory.MFStartup();
+
+try
+{
+    var encoders = MediaFactory.MFTEnumEx(
+        TransformCategoryGuids.VideoEncoder,
+        (uint)EnumFlag.EnumFlagHardware,
+        null,
+        null);
+
+    IMFActivate? h264Encoder = null;
+
+    foreach (var encoder in encoders)
+    {
+        var name = encoder.GetString(
+            TransformAttributeKeys.MftFriendlyNameAttribute);
+
+        if (name.Contains("H.264", StringComparison.OrdinalIgnoreCase))
+        {
+            h264Encoder = encoder;
+            Console.WriteLine($"Encoder: {name}");
+            break;
+        }
+    }
+
+    if (h264Encoder == null)
+    {
+        Console.WriteLine("No H.264 encoder found.");
+        return;
+    }
+
+    using var transform = h264Encoder.ActivateObject<IMFTransform>();
+    // Create input media type
+    using var inputType = MediaFactory.MFCreateMediaType();
+
+    inputType.SetGUID(
+        MediaTypeAttributeKeys.MajorType,
+        MediaTypeGuids.Video);
+
+    inputType.SetGUID(
+        MediaTypeAttributeKeys.Subtype,
+        VideoFormatGuids.NV12);
+
+    inputType.SetUInt32(
+        MediaTypeAttributeKeys.InterlaceMode,
+        (uint)VideoInterlaceMode.Progressive);
+
+    inputType.SetUInt32(
+        MediaTypeAttributeKeys.VideoWidth,
+        1280);
+
+    inputType.SetUInt32(
+        MediaTypeAttributeKeys.VideoHeight,
+        720);
+
+    inputType.SetUInt32(
+        MediaTypeAttributeKeys.FrameRateNumerator,
+        60);
+
+    inputType.SetUInt32(
+        MediaTypeAttributeKeys.FrameRateDenominator,
+        1);
+
+    Console.WriteLine("Setting input type...");
+
+    transform.SetInputType(0, inputType, 0);
+
+    Console.WriteLine("Input type accepted!");
+    transform.GetStreamCount(
+        out int inputStreams,
+        out int outputStreams);
+
+    Console.WriteLine($"Input streams:  {inputStreams}");
+    Console.WriteLine($"Output streams: {outputStreams}");
+    Console.WriteLine();
+
+    Console.WriteLine("Input media types");
+    Console.WriteLine("-----------------");
+
+    for (int i = 0; i < 20; i++)
+    {
+        try
+        {
+            using var type = transform.GetInputAvailableType(0, i);
+            using var attributes = type.QueryInterface<IMFAttributes>();
+
+            Console.WriteLine($"Input type #{i}");
+            Console.WriteLine(
+    $"  Major type: {attributes.GetGUID(MediaTypeAttributeKeys.MajorType)}");
+
+            Console.WriteLine(
+                $"  Subtype:    {attributes.GetGUID(MediaTypeAttributeKeys.Subtype)}");
+            Console.WriteLine();
+        }
+        catch
+        {
+            break;
+        }
+    }
+
+    Console.WriteLine("Output media types");
+    Console.WriteLine("------------------");
+
+    for (int i = 0; i < 20; i++)
+    {
+        try
+        {
+            using var type = transform.GetOutputAvailableType(0, i);
+            using var attributes = type.QueryInterface<IMFAttributes>();
+
+            Console.WriteLine($"Output type #{i}");
+            Console.WriteLine(
+    $"  Major type: {attributes.GetGUID(MediaTypeAttributeKeys.MajorType)}");
+
+            Console.WriteLine(
+                $"  Subtype:    {attributes.GetGUID(MediaTypeAttributeKeys.Subtype)}");
+            Console.WriteLine();
+        }
+        catch
+        {
+            break;
+        }
+    }
+}
+finally
+{
+    MediaFactory.MFShutdown();
+}
