@@ -1,11 +1,10 @@
-﻿
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Stream360.Core.Decoding;
 using Stream360.Core.Encoder;
 using Stream360.Core.Encoding;
 
-Console.WriteLine("Stream360 60 FPS Encode/Decode Benchmark");
-Console.WriteLine("========================================");
+Console.WriteLine("Stream360 Phase 5 - Real Frame Latency Benchmark");
+Console.WriteLine("================================================");
 Console.WriteLine();
 
 const int width = 1280;
@@ -16,6 +15,9 @@ const int frameCount = 600;
 
 double frameIntervalMs =
     1000.0 / fps;
+
+long frameDuration =
+    10_000_000L / fps;
 
 var encoders =
     EncoderDetector.GetAvailableEncoders();
@@ -70,13 +72,19 @@ try
         height,
         fps);
 
+    byte[] frameBuffer =
+        new byte[width * height * 3 / 2];
+
+    var frameTimings =
+        new Dictionary<long, FrameTiming>();
+
+    var endToEndLatencies =
+        new List<double>(frameCount);
+
     var generationTimes =
         new List<double>(frameCount);
 
     var encodeTimes =
-        new List<double>(frameCount);
-
-    var outputTimes =
         new List<double>(frameCount);
 
     var decodeSubmitTimes =
@@ -85,17 +93,9 @@ try
     var decodeRetrieveTimes =
         new List<double>(frameCount);
 
-    var totalTimes =
-        new List<double>(frameCount);
-
     int encodedPackets = 0;
     int decodedFrames = 0;
-
     long encodedBytes = 0;
-
-    // Reuse one NV12 buffer for the entire benchmark.
-    byte[] frameBuffer =
-        new byte[width * height * 3 / 2];
 
     var benchmarkClock =
         Stopwatch.StartNew();
@@ -112,11 +112,6 @@ try
 
     for (int i = 0; i < frameCount; i++)
     {
-        // ---------------------------------------------------------
-        // Pace the benchmark at 60 FPS.
-        // No Thread.Sleep() is used here.
-        // ---------------------------------------------------------
-
         nextDeadline +=
             (long)(
                 frequency *
@@ -129,14 +124,7 @@ try
             Thread.SpinWait(100);
         }
 
-        var totalStart =
-            Stopwatch.GetTimestamp();
-
-        // ---------------------------------------------------------
-        // 1. Fill reusable NV12 buffer.
-        // ---------------------------------------------------------
-
-        var stageStart =
+        var generationStart =
             Stopwatch.GetTimestamp();
 
         Nv12TestFrame.Fill(
@@ -145,48 +133,39 @@ try
             height,
             i);
 
-        double generationMs =
-            Stopwatch.GetElapsedTime(
-                stageStart).TotalMilliseconds;
-
         generationTimes.Add(
-            generationMs);
+            Stopwatch.GetElapsedTime(
+                generationStart).TotalMilliseconds);
 
-        // ---------------------------------------------------------
-        // 2. Submit NV12 frame to encoder.
-        // ---------------------------------------------------------
+        long mediaTimestamp =
+            i * frameDuration;
 
-        stageStart =
+        long submissionTimestamp =
+            Stopwatch.GetTimestamp();
+
+        frameTimings[mediaTimestamp] =
+            new FrameTiming(
+                i,
+                mediaTimestamp,
+                submissionTimestamp);
+
+        var encodeStart =
             Stopwatch.GetTimestamp();
 
         encoder.SubmitFrame(
             frameBuffer);
 
-        double encodeMs =
-            Stopwatch.GetElapsedTime(
-                stageStart).TotalMilliseconds;
-
         encodeTimes.Add(
-            encodeMs);
-
-        // ---------------------------------------------------------
-        // 3. Retrieve encoded packets.
-        // ---------------------------------------------------------
-
-        stageStart =
-            Stopwatch.GetTimestamp();
+            Stopwatch.GetElapsedTime(
+                encodeStart).TotalMilliseconds);
 
         while (encoder.TryGetEncodedFrame(
-            out byte[]? encodedPacket))
+            out var encodedPacket))
         {
             encodedPackets++;
 
             encodedBytes +=
-                encodedPacket!.Length;
-
-            // -----------------------------------------------------
-            // 4. Submit H.264 packet to decoder.
-            // -----------------------------------------------------
+                encodedPacket!.Data.Length;
 
             var decodeSubmitStart =
                 Stopwatch.GetTimestamp();
@@ -198,19 +177,33 @@ try
                 Stopwatch.GetElapsedTime(
                     decodeSubmitStart).TotalMilliseconds);
 
-            // -----------------------------------------------------
-            // 5. Retrieve decoded frames.
-            // -----------------------------------------------------
-
             var decodeRetrieveStart =
                 Stopwatch.GetTimestamp();
 
             while (decoder.TryGetDecodedFrame(
-                out byte[]? decodedFrame))
+                out var decodedFrame))
             {
                 decodedFrames++;
 
-                _ = decodedFrame;
+                if (frameTimings.TryGetValue(
+                        decodedFrame!.Timestamp,
+                        out var timing))
+                {
+                    double latencyMs =
+                        Stopwatch.GetElapsedTime(
+                            timing.SubmissionTimestamp)
+                        .TotalMilliseconds;
+
+                    endToEndLatencies.Add(
+                        latencyMs);
+
+                    frameTimings.Remove(
+                        decodedFrame.Timestamp);
+
+                    Console.WriteLine(
+                        $"Frame {timing.FrameId:D3} | " +
+                        $"Latency: {latencyMs:F3} ms");
+                }
             }
 
             decodeRetrieveTimes.Add(
@@ -218,47 +211,32 @@ try
                     decodeRetrieveStart).TotalMilliseconds);
         }
 
-        double outputMs =
-            Stopwatch.GetElapsedTime(
-                stageStart).TotalMilliseconds;
-
-        outputTimes.Add(
-            outputMs);
-
-        double totalMs =
-            Stopwatch.GetElapsedTime(
-                totalStart).TotalMilliseconds;
-
-        totalTimes.Add(
-            totalMs);
-
         if ((i + 1) % fps == 0)
         {
+            Console.WriteLine();
             Console.WriteLine(
-                $"Frame {i + 1}/{frameCount} | " +
-                $"Gen {generationMs:F2} ms | " +
-                $"Encode {encodeMs:F2} ms | " +
-                $"Output {outputMs:F2} ms | " +
-                $"Total {totalMs:F2} ms");
+                $"Progress: {i + 1}/{frameCount} frames");
+
+            Console.WriteLine(
+                $"Decoded:  {decodedFrames}");
+
+            Console.WriteLine();
         }
     }
 
-    // -------------------------------------------------------------
-    // Drain encoder.
-    // -------------------------------------------------------------
-
     Console.WriteLine();
-    Console.WriteLine("Draining encoder...");
+    Console.WriteLine(
+        "Draining encoder...");
 
     encoder.Flush();
 
     while (encoder.TryGetFlushedFrame(
-        out byte[]? encodedPacket))
+        out var encodedPacket))
     {
         encodedPackets++;
 
         encodedBytes +=
-            encodedPacket!.Length;
+            encodedPacket!.Data.Length;
 
         var decodeSubmitStart =
             Stopwatch.GetTimestamp();
@@ -274,11 +252,29 @@ try
             Stopwatch.GetTimestamp();
 
         while (decoder.TryGetDecodedFrame(
-            out byte[]? decodedFrame))
+            out var decodedFrame))
         {
             decodedFrames++;
 
-            _ = decodedFrame;
+            if (frameTimings.TryGetValue(
+                    decodedFrame!.Timestamp,
+                    out var timing))
+            {
+                double latencyMs =
+                    Stopwatch.GetElapsedTime(
+                        timing.SubmissionTimestamp)
+                    .TotalMilliseconds;
+
+                endToEndLatencies.Add(
+                    latencyMs);
+
+                frameTimings.Remove(
+                    decodedFrame.Timestamp);
+
+                Console.WriteLine(
+                    $"Drained frame {timing.FrameId:D3} | " +
+                    $"Latency: {latencyMs:F3} ms");
+            }
         }
 
         decodeRetrieveTimes.Add(
@@ -286,21 +282,36 @@ try
                 decodeRetrieveStart).TotalMilliseconds);
     }
 
-    // -------------------------------------------------------------
-    // Drain decoder.
-    // -------------------------------------------------------------
-
+    Console.WriteLine();
     Console.WriteLine(
         "Draining decoder...");
 
     decoder.Flush();
 
     while (decoder.TryGetDecodedFrame(
-        out byte[]? decodedFrame))
+        out var decodedFrame))
     {
         decodedFrames++;
 
-        _ = decodedFrame;
+        if (frameTimings.TryGetValue(
+                decodedFrame!.Timestamp,
+                out var timing))
+        {
+            double latencyMs =
+                Stopwatch.GetElapsedTime(
+                    timing.SubmissionTimestamp)
+                .TotalMilliseconds;
+
+            endToEndLatencies.Add(
+                latencyMs);
+
+            frameTimings.Remove(
+                decodedFrame.Timestamp);
+
+            Console.WriteLine(
+                $"Drained decoder frame {timing.FrameId:D3} | " +
+                $"Latency: {latencyMs:F3} ms");
+        }
     }
 
     double benchmarkSeconds =
@@ -359,36 +370,51 @@ try
         IReadOnlyList<double> values)
     {
         Console.WriteLine(name);
+
         Console.WriteLine(
             $"  Average: {Average(values):F3} ms");
+
         Console.WriteLine(
             $"  P95:     {Percentile(values, 0.95):F3} ms");
+
+        Console.WriteLine(
+            $"  P99:     {Percentile(values, 0.99):F3} ms");
+
         Console.WriteLine(
             $"  Max:     {Maximum(values):F3} ms");
+
         Console.WriteLine();
     }
 
     Console.WriteLine();
-    Console.WriteLine("========== RESULTS ==========");
+    Console.WriteLine(
+        "========== RESULTS ==========");
+
     Console.WriteLine();
 
     Console.WriteLine(
-        $"Input frames:        {frameCount}");
+        $"Input frames:          {frameCount}");
 
     Console.WriteLine(
-        $"Encoded packets:     {encodedPackets}");
+        $"Encoded packets:       {encodedPackets}");
 
     Console.WriteLine(
-        $"Decoded frames:      {decodedFrames}");
+        $"Decoded frames:        {decodedFrames}");
 
     Console.WriteLine(
-        $"Encoded bytes:       {encodedBytes:N0}");
+        $"Matched frames:        {endToEndLatencies.Count}");
 
     Console.WriteLine(
-        $"Benchmark duration:  {benchmarkSeconds:F2} s");
+        $"Unmatched timestamps:  {frameTimings.Count}");
 
     Console.WriteLine(
-        $"Effective FPS:       {frameCount / benchmarkSeconds:F2}");
+        $"Encoded bytes:         {encodedBytes:N0}");
+
+    Console.WriteLine(
+        $"Benchmark duration:    {benchmarkSeconds:F2} s");
+
+    Console.WriteLine(
+        $"Effective FPS:         {frameCount / benchmarkSeconds:F2}");
 
     Console.WriteLine();
 
@@ -401,10 +427,6 @@ try
         encodeTimes);
 
     PrintStats(
-        "Encoded output processing",
-        outputTimes);
-
-    PrintStats(
         "Decoder submission",
         decodeSubmitTimes);
 
@@ -413,8 +435,8 @@ try
         decodeRetrieveTimes);
 
     PrintStats(
-        "Total local processing",
-        totalTimes);
+        "ACTUAL FRAME LATENCY",
+        endToEndLatencies);
 
     Console.WriteLine(
         $"Target frame interval: {frameIntervalMs:F3} ms");
@@ -424,27 +446,24 @@ try
     if (decodedFrames == frameCount)
     {
         Console.WriteLine(
-            "PASS: All input frames produced decoded output.");
+            "PASS: All frames decoded.");
     }
     else
     {
         Console.WriteLine(
             $"INCOMPLETE: {decodedFrames}/{frameCount} " +
-            "decoded frames were observed.");
+            "frames decoded.");
     }
 
-    if (Average(totalTimes) <
-        frameIntervalMs)
+    if (endToEndLatencies.Count > 0)
     {
         Console.WriteLine(
-            "PASS: Average local processing is under " +
-            "the 60 FPS frame budget.");
+            "PASS: Actual frame-to-frame latency was measured.");
     }
     else
     {
         Console.WriteLine(
-            "WARNING: Average local processing exceeds " +
-            "the 60 FPS frame budget.");
+            "WARNING: No frame-to-frame latency measurements were matched.");
     }
 }
 catch (Exception ex)
@@ -456,3 +475,8 @@ catch (Exception ex)
     Console.WriteLine(
         ex);
 }
+
+internal sealed record FrameTiming(
+    int FrameId,
+    long MediaTimestamp,
+    long SubmissionTimestamp);

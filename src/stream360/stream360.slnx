@@ -2,4 +2,5 @@
   <Project Path="../stream360benchmmarks/stream360benchmmarks.csproj" />
   <Project Path="../stream360core/stream360core.csproj" />
   <Project Path="../stream360server/stream360server.csproj" />
+  <Project Path="stream360capturetest/stream360capturetest.csproj" Id="60a6dd5d-6eed-487c-a3a2-b4c7c5b39827" />
 </Solution>

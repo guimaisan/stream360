@@ -1,12 +1,12 @@
-﻿
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
+using Stream360.Core.Media;
 using Vortice.MediaFoundation;
 
 namespace Stream360.Core.Encoder;
 
 public sealed class MediaFoundationEncoder : IVideoEncoder
 {
-    private readonly Queue<byte[]> _pendingOutput = new();
+    private readonly Queue<EncodedPacket> _pendingOutput = new();
 
     private IMFTransform? _transform;
     private IMFMediaEventGenerator? _eventGenerator;
@@ -21,7 +21,8 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
 
     public bool IsInitialized { get; private set; }
 
-    public MediaFoundationEncoder(EncoderInfo info)
+    public MediaFoundationEncoder(
+        EncoderInfo info)
     {
         Info = info;
     }
@@ -53,32 +54,41 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
             _height = height;
             _fps = fps;
             _nextTimestamp = 0;
+
             _pendingOutput.Clear();
 
-            var activates = MediaFactory.MFTEnumEx(
-                TransformCategoryGuids.VideoEncoder,
-                (uint)EnumFlag.EnumFlagHardware,
-                null,
-                null);
+            var activates =
+                MediaFactory.MFTEnumEx(
+                    TransformCategoryGuids.VideoEncoder,
+                    (uint)EnumFlag.EnumFlagHardware,
+                    null,
+                    null);
 
             IMFActivate? selected = null;
 
             foreach (var activate in activates)
             {
-                var name =
-                    activate.GetString(
-                        TransformAttributeKeys.MftFriendlyNameAttribute);
-
-                if (string.Equals(
-                        name,
-                        Info.Name,
-                        StringComparison.OrdinalIgnoreCase))
+                try
                 {
-                    selected = activate;
-                    break;
-                }
+                    var name =
+                        activate.GetString(
+                            TransformAttributeKeys.MftFriendlyNameAttribute);
 
-                activate.Dispose();
+                    if (string.Equals(
+                            name,
+                            Info.Name,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        selected = activate;
+                        break;
+                    }
+
+                    activate.Dispose();
+                }
+                catch
+                {
+                    activate.Dispose();
+                }
             }
 
             if (selected == null)
@@ -97,6 +107,18 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                 selected.Dispose();
             }
 
+            // ---------------------------------------------------------
+            // Low-latency mode.
+            // ---------------------------------------------------------
+
+            Guid lowLatency =
+                new("9C27891A-ED7A-40E1-88E8-B22727A024EE");
+
+            _transform.Attributes.Set(
+                lowLatency,
+                (uint)1);
+
+            // Hardware encoder MFTs such as Quick Sync can be asynchronous.
             try
             {
                 _transform.Attributes.Set(
@@ -111,6 +133,10 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
             _eventGenerator =
                 _transform.QueryInterface<IMFMediaEventGenerator>();
 
+            // ---------------------------------------------------------
+            // OUTPUT TYPE
+            // ---------------------------------------------------------
+
             IMFMediaType? outputType = null;
 
             for (int i = 0; i < 20; i++)
@@ -118,7 +144,9 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                 try
                 {
                     var candidate =
-                        _transform.GetOutputAvailableType(0, i);
+                        _transform.GetOutputAvailableType(
+                            0,
+                            i);
 
                     using var attributes =
                         candidate.QueryInterface<IMFAttributes>();
@@ -166,7 +194,7 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                 attributes.Set(
                     MediaTypeAttributeKeys.FrameRate,
                     MediaFactory.PackRatio(
-                        (int)fps,
+                        fps,
                         1));
 
                 attributes.Set(
@@ -183,6 +211,10 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                     0);
             }
 
+            // ---------------------------------------------------------
+            // INPUT TYPE
+            // ---------------------------------------------------------
+
             IMFMediaType? inputType = null;
 
             for (int i = 0; i < 20; i++)
@@ -190,7 +222,9 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                 try
                 {
                     var candidate =
-                        _transform.GetInputAvailableType(0, i);
+                        _transform.GetInputAvailableType(
+                            0,
+                            i);
 
                     using var attributes =
                         candidate.QueryInterface<IMFAttributes>();
@@ -238,7 +272,7 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                 attributes.Set(
                     MediaTypeAttributeKeys.FrameRate,
                     MediaFactory.PackRatio(
-                        (int)fps,
+                        fps,
                         1));
 
                 attributes.Set(
@@ -277,8 +311,8 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
         }
     }
 
-    public void SubmitFrame(
-        ReadOnlySpan<byte> frame)
+    public unsafe void SubmitFrame(
+    ReadOnlySpan<byte> frame)
     {
         if (!IsInitialized ||
             _transform == null ||
@@ -324,14 +358,15 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
 
                 try
                 {
-                    byte[] frameBytes =
-                        frame.ToArray();
+                    fixed (byte* frameData = frame)
+                    {
+                        var destination =
+                            new Span<byte>(
+                                (void*)inputData,
+                                frame.Length);
 
-                    Marshal.Copy(
-                        frameBytes,
-                        0,
-                        inputData,
-                        frameBytes.Length);
+                        frame.CopyTo(destination);
+                    }
                 }
                 finally
                 {
@@ -371,13 +406,14 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                     "TransformHaveOutput",
                     StringComparison.OrdinalIgnoreCase))
             {
-                byte[]? output =
+                EncodedPacket? output =
                     ProcessOneOutput();
 
                 if (output != null &&
-                    output.Length > 0)
+                    output.Data.Length > 0)
                 {
-                    _pendingOutput.Enqueue(output);
+                    _pendingOutput.Enqueue(
+                        output);
                 }
 
                 continue;
@@ -385,7 +421,7 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
         }
     }
 
-    private byte[]? ProcessOneOutput()
+    private EncodedPacket? ProcessOneOutput()
     {
         if (_transform == null)
             return null;
@@ -442,6 +478,7 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
             if (outputData.Status == 0x100)
             {
                 ReconfigureOutputType();
+
                 return null;
             }
 
@@ -461,6 +498,9 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
 
             try
             {
+                if (encodedCurrentLength <= 0)
+                    return null;
+
                 var result =
                     new byte[encodedCurrentLength];
 
@@ -470,7 +510,12 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
                     0,
                     encodedCurrentLength);
 
-                return result;
+                long timestamp =
+                    outputData.Sample.SampleTime;
+
+                return new EncodedPacket(
+                    result,
+                    timestamp);
             }
             finally
             {
@@ -497,7 +542,9 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
             try
             {
                 var candidate =
-                    _transform.GetOutputAvailableType(0, i);
+                    _transform.GetOutputAvailableType(
+                        0,
+                        i);
 
                 using var attributes =
                     candidate.QueryInterface<IMFAttributes>();
@@ -535,22 +582,22 @@ public sealed class MediaFoundationEncoder : IVideoEncoder
     }
 
     public bool TryGetEncodedFrame(
-        out byte[]? encodedFrame)
+        out EncodedPacket? packet)
     {
         if (_pendingOutput.Count > 0)
         {
-            encodedFrame =
+            packet =
                 _pendingOutput.Dequeue();
 
             return true;
         }
 
-        encodedFrame = null;
+        packet = null;
+
         return false;
     }
 
- 
-public void Flush()
+    public void Flush()
     {
         if (!IsInitialized ||
             _transform == null ||
@@ -560,9 +607,6 @@ public void Flush()
                 "Encoder has not been initialized.");
         }
 
-        // Tell the asynchronous MFT to process everything it
-        // currently has buffered. Stream 0 is the input stream
-        // we are draining.
         _transform.ProcessMessage(
             TMessageType.MessageCommandDrain,
             UIntPtr.Zero);
@@ -579,13 +623,14 @@ public void Flush()
                     "TransformHaveOutput",
                     StringComparison.OrdinalIgnoreCase))
             {
-                byte[]? output =
+                EncodedPacket? output =
                     ProcessOneOutput();
 
                 if (output != null &&
-                    output.Length > 0)
+                    output.Data.Length > 0)
                 {
-                    _pendingOutput.Enqueue(output);
+                    _pendingOutput.Enqueue(
+                        output);
                 }
 
                 continue;
@@ -600,13 +645,11 @@ public void Flush()
         }
     }
 
-
-
     public bool TryGetFlushedFrame(
-        out byte[]? encodedFrame)
+        out EncodedPacket? packet)
     {
         return TryGetEncodedFrame(
-            out encodedFrame);
+            out packet);
     }
 
     public void Stop()
@@ -639,6 +682,7 @@ public void Flush()
         }
 
         IsInitialized = false;
+
         _pendingOutput.Clear();
         _nextTimestamp = 0;
     }

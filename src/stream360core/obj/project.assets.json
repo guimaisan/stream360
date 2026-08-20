@@ -1,7 +1,20 @@
 {
   "version": 4,
   "targets": {
-    "net10.0": {
+    "net10.0-windows10.0.26100.0": {
+      "Microsoft.Windows.CsWinRT/2.3.1": {
+        "type": "package",
+        "compile": {
+          "lib/net9.0/WinRT.Runtime.dll": {}
+        },
+        "runtime": {
+          "lib/net9.0/WinRT.Runtime.dll": {}
+        },
+        "build": {
+          "build/Microsoft.Windows.CsWinRT.props": {},
+          "build/Microsoft.Windows.CsWinRT.targets": {}
+        }
+      },
       "SharpGen.Runtime/2.4.2-beta": {
         "type": "package",
         "compile": {
@@ -76,6 +89,29 @@
           }
         }
       },
+      "Vortice.Direct3D11/3.8.3": {
+        "type": "package",
+        "dependencies": {
+          "SharpGen.Runtime": "2.4.2-beta",
+          "Vortice.DXGI": "3.8.3"
+        },
+        "compile": {
+          "lib/net10.0/Vortice.Direct3D11.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/Vortice.Direct3D11.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "build/Vortice.Direct3D11.props": {}
+        },
+        "buildMultiTargeting": {
+          "buildMultiTargeting/Vortice.Direct3D11.props": {}
+        }
+      },
       "Vortice.DirectX/3.8.3": {
         "type": "package",
         "dependencies": {
@@ -84,12 +120,12 @@
           "Vortice.Mathematics": "2.1.0"
         },
         "compile": {
-          "lib/net10.0/Vortice.DirectX.dll": {
+          "lib/net10.0-windows10.0.22621/Vortice.DirectX.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net10.0/Vortice.DirectX.dll": {
+          "lib/net10.0-windows10.0.22621/Vortice.DirectX.dll": {
             "related": ".xml"
           }
         },
@@ -100,15 +136,38 @@
           "buildMultiTargeting/_._": {}
         }
       },
+      "Vortice.DXGI/3.8.3": {
+        "type": "package",
+        "dependencies": {
+          "SharpGen.Runtime": "2.4.2-beta",
+          "Vortice.DirectX": "3.8.3"
+        },
+        "compile": {
+          "lib/net10.0-windows10.0.22621/Vortice.DXGI.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0-windows10.0.22621/Vortice.DXGI.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "build/Vortice.DXGI.props": {}
+        },
+        "buildMultiTargeting": {
+          "buildMultiTargeting/Vortice.DXGI.props": {}
+        }
+      },
       "Vortice.Mathematics/2.1.0": {
         "type": "package",
         "compile": {
-          "lib/net10.0/Vortice.Mathematics.dll": {
+          "lib/net10.0-windows10.0.19041/Vortice.Mathematics.dll": {
             "related": ".pdb;.xml"
           }
         },
         "runtime": {
-          "lib/net10.0/Vortice.Mathematics.dll": {
+          "lib/net10.0-windows10.0.19041/Vortice.Mathematics.dll": {
             "related": ".pdb;.xml"
           }
         }
@@ -139,6 +198,205 @@
     }
   },
   "libraries": {
+    "Microsoft.Windows.CsWinRT/2.3.1": {
+      "sha512": "ojoYrj8m8mAx6LVxofQXgfvsReDTv2LQFeDgXt5Lw99r5fv7dCR19ybd1JN0OueaWvL+BNqv0E7zZCgqptP9zA==",
+      "type": "package",
+      "path": "microsoft.windows.cswinrt/2.3.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "NOTICE.txt",
+        "analyzers/dotnet/cs/roslyn4.12/WinRT.SourceGenerator.dll",
+        "analyzers/dotnet/cs/roslyn4.8/WinRT.SourceGenerator.dll",
+        "build/Microsoft.Windows.CsWinRT.Authoring.Transitive.targets",
+        "build/Microsoft.Windows.CsWinRT.Authoring.targets",
+        "build/Microsoft.Windows.CsWinRT.BeforeMicrosoftNetSdk.targets",
+        "build/Microsoft.Windows.CsWinRT.Embedded.targets",
+        "build/Microsoft.Windows.CsWinRT.IIDOptimizer.targets",
+        "build/Microsoft.Windows.CsWinRT.props",
+        "build/Microsoft.Windows.CsWinRT.targets",
+        "build/sources/StubExe.c",
+        "build/tools/IIDOptimizer/IIDOptimizer.deps.json",
+        "build/tools/IIDOptimizer/IIDOptimizer.dll",
+        "build/tools/IIDOptimizer/IIDOptimizer.exe",
+        "build/tools/IIDOptimizer/IIDOptimizer.runtimeconfig.json",
+        "build/tools/IIDOptimizer/Mono.Cecil.Mdb.dll",
+        "build/tools/IIDOptimizer/Mono.Cecil.Pdb.dll",
+        "build/tools/IIDOptimizer/Mono.Cecil.Rocks.dll",
+        "build/tools/IIDOptimizer/Mono.Cecil.dll",
+        "build/tools/IIDOptimizer/System.CommandLine.dll",
+        "cswinrt.exe",
+        "embedded/any/ActivationFactory.cs",
+        "embedded/any/AgileReference.cs",
+        "embedded/any/Attributes.cs",
+        "embedded/any/CastExtensions.cs",
+        "embedded/any/ComWrappersSupport.cs",
+        "embedded/any/Context.cs",
+        "embedded/any/DataErrorsChangedEventArgs.cs",
+        "embedded/any/DelegateExtensions.cs",
+        "embedded/any/DerivedComposed.cs",
+        "embedded/any/EventHandler.cs",
+        "embedded/any/EventHandlerEventSource.cs",
+        "embedded/any/EventHandlerEventSource{T}.cs",
+        "embedded/any/EventRegistrationToken.cs",
+        "embedded/any/EventRegistrationTokenTable{T}.cs",
+        "embedded/any/EventSourceCache.cs",
+        "embedded/any/EventSourceState{TDelegate}.cs",
+        "embedded/any/EventSource{TDelegate}.cs",
+        "embedded/any/ExceptionErrorInfo.cs",
+        "embedded/any/ExceptionHelpers.Microsoft.cs",
+        "embedded/any/ExceptionHelpers.cs",
+        "embedded/any/FeatureSwitches.cs",
+        "embedded/any/FundamentalMarshalers.cs",
+        "embedded/any/Geometry.cs",
+        "embedded/any/GuidGenerator.cs",
+        "embedded/any/IActivationFactory.cs",
+        "embedded/any/IContextCallback.cs",
+        "embedded/any/IDelegateVftbl.cs",
+        "embedded/any/IID.g.cs",
+        "embedded/any/IInspectable.cs",
+        "embedded/any/IReferenceTracker.cs",
+        "embedded/any/IStringable.cs",
+        "embedded/any/IUnknownVftbl.cs",
+        "embedded/any/KeyValuePair.cs",
+        "embedded/any/Marshalers.cs",
+        "embedded/any/Module.cs",
+        "embedded/any/MonoSupport.cs",
+        "embedded/any/NotifyCollectionChangedAction.cs",
+        "embedded/any/NotifyCollectionChangedEventArgs.cs",
+        "embedded/any/NotifyCollectionChangedEventHandler.cs",
+        "embedded/any/Nullable.cs",
+        "embedded/any/Numerics.cs",
+        "embedded/any/ObjectReference.cs",
+        "embedded/any/Platform.cs",
+        "embedded/any/Projections.CustomTypeMappings.EventHandler.cs",
+        "embedded/any/Projections.CustomTypeMappings.g.cs",
+        "embedded/any/Projections.cs",
+        "embedded/any/PropertyChangedEventArgs.cs",
+        "embedded/any/PropertyChangedEventHandler.cs",
+        "embedded/any/StandardDelegates.cs",
+        "embedded/any/SystemTypes.cs",
+        "embedded/any/Type.ArrayMarshalling.cs",
+        "embedded/any/Type.cs",
+        "embedded/any/TypeExtensions.cs",
+        "embedded/any/TypeNameSupport.cs",
+        "embedded/any/Uri.cs",
+        "embedded/any/WinRTRuntimeErrorStrings.Designer.cs",
+        "embedded/any/WuxMuxProjectedTypeAttribute.cs",
+        "embedded/net8.0/AttributeMessages.net5.cs",
+        "embedded/net8.0/Bindable.net5.cs",
+        "embedded/net8.0/CollectionHybrid.net5.cs",
+        "embedded/net8.0/ComWrappersSupport.net5.cs",
+        "embedded/net8.0/ExceptionErrorInfo.net5.cs",
+        "embedded/net8.0/ExceptionHelpers.Windows.net5.cs",
+        "embedded/net8.0/GenericDelegateHelper.net5.cs",
+        "embedded/net8.0/IAgileReference.net5.cs",
+        "embedded/net8.0/ICommand.net5.cs",
+        "embedded/net8.0/ICustomPropertyProvider.net5.cs",
+        "embedded/net8.0/IDictionary.net5.cs",
+        "embedded/net8.0/IDisposable.net5.cs",
+        "embedded/net8.0/IEnumerable.net5.cs",
+        "embedded/net8.0/IInspectable.net5.cs",
+        "embedded/net8.0/IList.net5.cs",
+        "embedded/net8.0/IMarshal.net5.cs",
+        "embedded/net8.0/INotifyCollectionChanged.net5.cs",
+        "embedded/net8.0/INotifyDataErrorInfo.net5.cs",
+        "embedded/net8.0/INotifyPropertyChanged.net5.cs",
+        "embedded/net8.0/IPropertyValue.net5.cs",
+        "embedded/net8.0/IReadOnlyDictionary.net5.cs",
+        "embedded/net8.0/IReadOnlyList.net5.cs",
+        "embedded/net8.0/IReferenceArray.net5.cs",
+        "embedded/net8.0/IServiceProvider.net5.cs",
+        "embedded/net8.0/IWeakReferenceSource.net5.cs",
+        "embedded/net8.0/IWinRTObject.net5.cs",
+        "embedded/net8.0/SingleInterfaceOptimizedObject.net5.cs",
+        "embedded/netstandard2.0/Bindable.netstandard2.0.cs",
+        "embedded/netstandard2.0/ComWrappersSupport.netstandard2.0.cs",
+        "embedded/netstandard2.0/ExceptionErrorInfo.netstandard2.0.cs",
+        "embedded/netstandard2.0/IAgileReference.netstandard2.0.cs",
+        "embedded/netstandard2.0/ICommand.netstandard2.0.cs",
+        "embedded/netstandard2.0/ICustomPropertyProvider.netstandard2.0.cs",
+        "embedded/netstandard2.0/IDictionary.netstandard2.0.cs",
+        "embedded/netstandard2.0/IDisposable.netstandard2.0.cs",
+        "embedded/netstandard2.0/IEnumerable.netstandard2.0.cs",
+        "embedded/netstandard2.0/IList.netstandard2.0.cs",
+        "embedded/netstandard2.0/IMarshal.netstandard2.0.cs",
+        "embedded/netstandard2.0/INotifyCollectionChanged.netstandard2.0.cs",
+        "embedded/netstandard2.0/INotifyDataErrorInfo.netstandard2.0.cs",
+        "embedded/netstandard2.0/INotifyPropertyChanged.netstandard2.0.cs",
+        "embedded/netstandard2.0/IPropertyValue.netstandard2.0.cs",
+        "embedded/netstandard2.0/IReadOnlyDictionary.netstandard2.0.cs",
+        "embedded/netstandard2.0/IReadOnlyList.netstandard2.0.cs",
+        "embedded/netstandard2.0/IReferenceArray.netstandard2.0.cs",
+        "embedded/netstandard2.0/IServiceProvider.netstandard2.0.cs",
+        "embedded/netstandard2.0/IWeakReferenceSource.netstandard2.0.cs",
+        "embedded/netstandard2.0/WeakReference.netstandard2.0.cs",
+        "hosting/arm64/native/WinRT.Host.dll",
+        "hosting/arm64/native/de-DE/WinRT.Host.dll.mui",
+        "hosting/arm64/native/en-US/WinRT.Host.dll.mui",
+        "hosting/arm64/native/es-ES/WinRT.Host.dll.mui",
+        "hosting/arm64/native/fr-FR/WinRT.Host.dll.mui",
+        "hosting/arm64/native/it-IT/WinRT.Host.dll.mui",
+        "hosting/arm64/native/ja-JP/WinRT.Host.dll.mui",
+        "hosting/arm64/native/ko-KR/WinRT.Host.dll.mui",
+        "hosting/arm64/native/pt-BR/WinRT.Host.dll.mui",
+        "hosting/arm64/native/ru-RU/WinRT.Host.dll.mui",
+        "hosting/arm64/native/zh-CN/WinRT.Host.dll.mui",
+        "hosting/arm64/native/zh-TW/WinRT.Host.dll.mui",
+        "hosting/x64/native/WinRT.Host.dll",
+        "hosting/x64/native/de-DE/WinRT.Host.dll.mui",
+        "hosting/x64/native/en-US/WinRT.Host.dll.mui",
+        "hosting/x64/native/es-ES/WinRT.Host.dll.mui",
+        "hosting/x64/native/fr-FR/WinRT.Host.dll.mui",
+        "hosting/x64/native/it-IT/WinRT.Host.dll.mui",
+        "hosting/x64/native/ja-JP/WinRT.Host.dll.mui",
+        "hosting/x64/native/ko-KR/WinRT.Host.dll.mui",
+        "hosting/x64/native/pt-BR/WinRT.Host.dll.mui",
+        "hosting/x64/native/ru-RU/WinRT.Host.dll.mui",
+        "hosting/x64/native/zh-CN/WinRT.Host.dll.mui",
+        "hosting/x64/native/zh-TW/WinRT.Host.dll.mui",
+        "hosting/x86/native/WinRT.Host.dll",
+        "hosting/x86/native/de-DE/WinRT.Host.dll.mui",
+        "hosting/x86/native/en-US/WinRT.Host.dll.mui",
+        "hosting/x86/native/es-ES/WinRT.Host.dll.mui",
+        "hosting/x86/native/fr-FR/WinRT.Host.dll.mui",
+        "hosting/x86/native/it-IT/WinRT.Host.dll.mui",
+        "hosting/x86/native/ja-JP/WinRT.Host.dll.mui",
+        "hosting/x86/native/ko-KR/WinRT.Host.dll.mui",
+        "hosting/x86/native/pt-BR/WinRT.Host.dll.mui",
+        "hosting/x86/native/ru-RU/WinRT.Host.dll.mui",
+        "hosting/x86/native/zh-CN/WinRT.Host.dll.mui",
+        "hosting/x86/native/zh-TW/WinRT.Host.dll.mui",
+        "lib/net8.0/WinRT.Host.Shim.dll",
+        "lib/net8.0/WinRT.Runtime.dll",
+        "lib/net8.0/de-DE/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/es-ES/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/fr-FR/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/it-IT/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/ja-JP/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/ko-KR/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/pt-BR/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/ru-RU/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/zh-CN/WinRTRuntimeErrorStrings.resx",
+        "lib/net8.0/zh-TW/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/WinRT.Runtime.dll",
+        "lib/net9.0/de-DE/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/es-ES/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/fr-FR/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/it-IT/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/ja-JP/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/ko-KR/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/pt-BR/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/ru-RU/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/zh-CN/WinRTRuntimeErrorStrings.resx",
+        "lib/net9.0/zh-TW/WinRTRuntimeErrorStrings.resx",
+        "metadata/WinRT.Interop.winmd",
+        "microsoft.windows.cswinrt.2.3.1.nupkg.sha512",
+        "microsoft.windows.cswinrt.nuspec",
+        "readme.txt"
+      ]
+    },
     "SharpGen.Runtime/2.4.2-beta": {
       "sha512": "niTtWAUov1F7wZGAlVeEvW+Tnqvg5yTmhI7rxmYu2Utoyu2TbC9tWWpUpMs0PQg5lu5svoYpCAztNjxCqMFP/w==",
       "type": "package",
@@ -238,6 +496,27 @@
         "useSharedDesignerContext.txt"
       ]
     },
+    "Vortice.Direct3D11/3.8.3": {
+      "sha512": "JgFUswu2mgrSwcd0KRF2AnfeE5VbMEgcicmxPD1g2yXyomPIHbnX3wldBNHPOzzD0URC1WJ/pO1ymfi3imZwvg==",
+      "type": "package",
+      "path": "vortice.direct3d11/3.8.3",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "build/Vortice.Direct3D11.BindMapping.xml",
+        "build/Vortice.Direct3D11.props",
+        "buildMultiTargeting/Vortice.Direct3D11.props",
+        "lib/net10.0/Vortice.Direct3D11.dll",
+        "lib/net10.0/Vortice.Direct3D11.xml",
+        "lib/net8.0/Vortice.Direct3D11.dll",
+        "lib/net8.0/Vortice.Direct3D11.xml",
+        "lib/net9.0/Vortice.Direct3D11.dll",
+        "lib/net9.0/Vortice.Direct3D11.xml",
+        "vortice.direct3d11.3.8.3.nupkg.sha512",
+        "vortice.direct3d11.nuspec"
+      ]
+    },
     "Vortice.DirectX/3.8.3": {
       "sha512": "nKwSavv0w5rDF7prSefqAVPDcTyqrfZxKFMVfttiXPfm62VdA/1d+b3PhCZpW4xO7jXczXDwjQdWgD1zGsvM8w==",
       "type": "package",
@@ -263,6 +542,33 @@
         "lib/net9.0/Vortice.DirectX.xml",
         "vortice.directx.3.8.3.nupkg.sha512",
         "vortice.directx.nuspec"
+      ]
+    },
+    "Vortice.DXGI/3.8.3": {
+      "sha512": "MbAUnTeQ6WD99ctAdrj5CQO2I7oaax0Kt2eVdWSUj0bYP9Ed0726+s7dIHe4+tqhpmINW/dcPt0mNtc72o+E0w==",
+      "type": "package",
+      "path": "vortice.dxgi/3.8.3",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "build/Vortice.DXGI.BindMapping.xml",
+        "build/Vortice.DXGI.props",
+        "buildMultiTargeting/Vortice.DXGI.props",
+        "lib/net10.0-windows10.0.22621/Vortice.DXGI.dll",
+        "lib/net10.0-windows10.0.22621/Vortice.DXGI.xml",
+        "lib/net10.0/Vortice.DXGI.dll",
+        "lib/net10.0/Vortice.DXGI.xml",
+        "lib/net8.0-windows10.0.22621/Vortice.DXGI.dll",
+        "lib/net8.0-windows10.0.22621/Vortice.DXGI.xml",
+        "lib/net8.0/Vortice.DXGI.dll",
+        "lib/net8.0/Vortice.DXGI.xml",
+        "lib/net9.0-windows10.0.22621/Vortice.DXGI.dll",
+        "lib/net9.0-windows10.0.22621/Vortice.DXGI.xml",
+        "lib/net9.0/Vortice.DXGI.dll",
+        "lib/net9.0/Vortice.DXGI.xml",
+        "vortice.dxgi.3.8.3.nupkg.sha512",
+        "vortice.dxgi.nuspec"
       ]
     },
     "Vortice.Mathematics/2.1.0": {
@@ -315,8 +621,11 @@
     }
   },
   "projectFileDependencyGroups": {
-    "net10.0": [
+    "net10.0-windows10.0.26100.0": [
+      "Microsoft.Windows.CsWinRT >= 2.3.1",
       "System.Management >= 10.0.11",
+      "Vortice.DXGI >= 3.8.3",
+      "Vortice.Direct3D11 >= 3.8.3",
       "Vortice.MediaFoundation >= 3.8.3"
     ]
   },
@@ -337,16 +646,16 @@
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
-        "net10.0"
+        "net10.0-windows10.0.26100.0"
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
-        "net10.0": {
-          "framework": "net10.0",
-          "targetAlias": "net10.0",
+        "net10.0-windows10.0.26100.0": {
+          "framework": "net10.0-windows10.0.26100",
+          "targetAlias": "net10.0-windows10.0.26100.0",
           "projectReferences": {}
         }
       },
@@ -363,13 +672,25 @@
       "SdkAnalysisLevel": "10.0.400"
     },
     "frameworks": {
-      "net10.0": {
-        "framework": "net10.0",
-        "targetAlias": "net10.0",
+      "net10.0-windows10.0.26100.0": {
+        "framework": "net10.0-windows10.0.26100",
+        "targetAlias": "net10.0-windows10.0.26100.0",
         "dependencies": {
+          "Microsoft.Windows.CsWinRT": {
+            "target": "Package",
+            "version": "[2.3.1, )"
+          },
           "System.Management": {
             "target": "Package",
             "version": "[10.0.11, )"
+          },
+          "Vortice.DXGI": {
+            "target": "Package",
+            "version": "[3.8.3, )"
+          },
+          "Vortice.Direct3D11": {
+            "target": "Package",
+            "version": "[3.8.3, )"
           },
           "Vortice.MediaFoundation": {
             "target": "Package",
@@ -387,8 +708,17 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.Windows.SDK.NET.Ref",
+            "version": "[10.0.26100.57, 10.0.26100.57]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          },
+          "Microsoft.Windows.SDK.NET.Ref.Windows": {
             "privateAssets": "all"
           }
         },

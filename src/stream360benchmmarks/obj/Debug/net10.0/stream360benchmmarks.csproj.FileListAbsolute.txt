@@ -40,3 +40,5 @@ C:\Dev\stream360\src\stream360benchmmarks\bin\Debug\net10.0\SharpGen.Runtime.COM
 C:\Dev\stream360\src\stream360benchmmarks\bin\Debug\net10.0\Vortice.DirectX.dll
 C:\Dev\stream360\src\stream360benchmmarks\bin\Debug\net10.0\Vortice.Mathematics.dll
 C:\Dev\stream360\src\stream360benchmmarks\bin\Debug\net10.0\Vortice.MediaFoundation.dll
+C:\Dev\stream360\src\stream360benchmmarks\bin\Debug\net10.0\Vortice.Direct3D11.dll
+C:\Dev\stream360\src\stream360benchmmarks\bin\Debug\net10.0\Vortice.DXGI.dll

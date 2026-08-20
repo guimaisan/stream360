@@ -1,16 +1,20 @@
 {
   "version": 2,
-  "dgSpecHash": "Gyir1GSkGug=",
+  "dgSpecHash": "bT+573kDYWI=",
   "success": true,
   "projectFilePath": "C:\\Dev\\stream360\\src\\stream360benchmmarks\\stream360benchmmarks.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\lamai\\.nuget\\packages\\microsoft.windows.cswinrt\\2.3.1\\microsoft.windows.cswinrt.2.3.1.nupkg.sha512",
     "C:\\Users\\lamai\\.nuget\\packages\\sharpgen.runtime\\2.4.2-beta\\sharpgen.runtime.2.4.2-beta.nupkg.sha512",
     "C:\\Users\\lamai\\.nuget\\packages\\sharpgen.runtime.com\\2.4.2-beta\\sharpgen.runtime.com.2.4.2-beta.nupkg.sha512",
     "C:\\Users\\lamai\\.nuget\\packages\\system.codedom\\10.0.11\\system.codedom.10.0.11.nupkg.sha512",
     "C:\\Users\\lamai\\.nuget\\packages\\system.management\\10.0.11\\system.management.10.0.11.nupkg.sha512",
+    "C:\\Users\\lamai\\.nuget\\packages\\vortice.direct3d11\\3.8.3\\vortice.direct3d11.3.8.3.nupkg.sha512",
     "C:\\Users\\lamai\\.nuget\\packages\\vortice.directx\\3.8.3\\vortice.directx.3.8.3.nupkg.sha512",
+    "C:\\Users\\lamai\\.nuget\\packages\\vortice.dxgi\\3.8.3\\vortice.dxgi.3.8.3.nupkg.sha512",
     "C:\\Users\\lamai\\.nuget\\packages\\vortice.mathematics\\2.1.0\\vortice.mathematics.2.1.0.nupkg.sha512",
-    "C:\\Users\\lamai\\.nuget\\packages\\vortice.mediafoundation\\3.8.3\\vortice.mediafoundation.3.8.3.nupkg.sha512"
+    "C:\\Users\\lamai\\.nuget\\packages\\vortice.mediafoundation\\3.8.3\\vortice.mediafoundation.3.8.3.nupkg.sha512",
+    "C:\\Users\\lamai\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.26100.57\\microsoft.windows.sdk.net.ref.10.0.26100.57.nupkg.sha512"
   ],
   "logs": []
 }

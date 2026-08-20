@@ -1,12 +1,12 @@
-﻿
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
+using Stream360.Core.Media;
 using Vortice.MediaFoundation;
 
 namespace Stream360.Core.Decoding;
 
 public sealed class MediaFoundationDecoder : IVideoDecoder
 {
-    private readonly Queue<byte[]> _pendingOutput = new();
+    private readonly Queue<DecodedFrame> _pendingOutput = new();
 
     private IMFTransform? _transform;
     private bool _mediaFoundationStarted;
@@ -60,6 +60,8 @@ public sealed class MediaFoundationDecoder : IVideoDecoder
                         selected = decoder;
                         break;
                     }
+
+                    decoder.Dispose();
                 }
                 catch
                 {
@@ -82,6 +84,17 @@ public sealed class MediaFoundationDecoder : IVideoDecoder
             {
                 selected.Dispose();
             }
+
+            // ---------------------------------------------------------
+            // Low-latency mode.
+            // ---------------------------------------------------------
+
+            Guid lowLatency =
+                new("9C27891A-ED7A-40E1-88E8-B22727A024EE");
+
+            _transform.Attributes.Set(
+                lowLatency,
+                (uint)1);
 
             // ---------------------------------------------------------
             // H.264 INPUT
@@ -203,7 +216,7 @@ public sealed class MediaFoundationDecoder : IVideoDecoder
     }
 
     public void SubmitPacket(
-        ReadOnlySpan<byte> encodedData)
+        EncodedPacket packet)
     {
         if (!IsInitialized ||
             _transform == null)
@@ -212,19 +225,17 @@ public sealed class MediaFoundationDecoder : IVideoDecoder
                 "Decoder has not been initialized.");
         }
 
-        if (encodedData.Length == 0)
+        if (packet.Data.Length == 0)
         {
             throw new ArgumentException(
                 "Encoded H.264 packet is empty.");
         }
 
-        // Drain any output that is already available before submitting
-        // another packet.
         DrainAvailableOutput();
 
         using var inputBuffer =
             MediaFactory.MFCreateMemoryBuffer(
-                encodedData.Length);
+                packet.Data.Length);
 
         inputBuffer.Lock(
             out IntPtr inputData,
@@ -233,14 +244,11 @@ public sealed class MediaFoundationDecoder : IVideoDecoder
 
         try
         {
-            byte[] bytes =
-                encodedData.ToArray();
-
             Marshal.Copy(
-                bytes,
+                packet.Data,
                 0,
                 inputData,
-                bytes.Length);
+                packet.Data.Length);
         }
         finally
         {
@@ -248,7 +256,7 @@ public sealed class MediaFoundationDecoder : IVideoDecoder
         }
 
         inputBuffer.CurrentLength =
-            encodedData.Length;
+            packet.Data.Length;
 
         using var inputSample =
             MediaFactory.MFCreateSample();
@@ -256,12 +264,14 @@ public sealed class MediaFoundationDecoder : IVideoDecoder
         inputSample.AddBuffer(
             inputBuffer);
 
+        inputSample.SampleTime =
+            packet.Timestamp;
+
         _transform.ProcessInput(
             0,
             inputSample,
             0);
 
-        // The decoder may have produced a frame immediately.
         DrainAvailableOutput();
     }
 
@@ -278,11 +288,12 @@ public sealed class MediaFoundationDecoder : IVideoDecoder
             if (output == null)
                 break;
 
-            _pendingOutput.Enqueue(output);
+            _pendingOutput.Enqueue(
+                output);
         }
     }
 
-private byte[]? TryProcessOneOutput()
+    private DecodedFrame? TryProcessOneOutput()
     {
         if (_transform == null)
             return null;
@@ -325,11 +336,8 @@ private byte[]? TryProcessOneOutput()
                 ref outputData,
                 out status);
         }
-        catch (Exception ex)
+        catch
         {
-            // During normal operation, this means there is no decoded
-            // frame ready right now. During draining, it means the
-            // decoder has no more buffered output.
             return null;
         }
 
@@ -358,7 +366,12 @@ private byte[]? TryProcessOneOutput()
                 0,
                 decodedCurrentLength);
 
-            return frame;
+            long timestamp =
+                outputData.Sample.SampleTime;
+
+            return new DecodedFrame(
+                frame,
+                timestamp);
         }
         finally
         {
@@ -367,7 +380,7 @@ private byte[]? TryProcessOneOutput()
     }
 
     public bool TryGetDecodedFrame(
-        out byte[]? frame)
+        out DecodedFrame? frame)
     {
         if (_pendingOutput.Count > 0)
         {
@@ -378,10 +391,11 @@ private byte[]? TryProcessOneOutput()
         }
 
         frame = null;
+
         return false;
     }
 
-public void Flush()
+    public void Flush()
     {
         if (_transform == null)
             return;
@@ -390,8 +404,6 @@ public void Flush()
             TMessageType.MessageCommandDrain,
             UIntPtr.Zero);
 
-        // Keep asking the decoder for output until it has no more
-        // frames buffered internally.
         while (true)
         {
             var output =
@@ -400,7 +412,8 @@ public void Flush()
             if (output == null)
                 break;
 
-            _pendingOutput.Enqueue(output);
+            _pendingOutput.Enqueue(
+                output);
         }
     }
 

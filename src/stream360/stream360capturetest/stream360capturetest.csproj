@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+		<UseWindowsForms>true</UseWindowsForms>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\stream360benchmmarks\stream360benchmmarks.csproj" />
+	  <ProjectReference Include="..\..\stream360core\stream360core.csproj" />
+	  <ProjectReference Include="..\..\stream360server\stream360server.csproj" />
+	</ItemGroup>
+
+</Project>

@@ -1,4 +1,6 @@
 ﻿
+using Stream360.Core.Media;
+
 namespace Stream360.Core.Encoder;
 
 public interface IVideoEncoder : IDisposable
@@ -17,12 +19,12 @@ public interface IVideoEncoder : IDisposable
         ReadOnlySpan<byte> frame);
 
     bool TryGetEncodedFrame(
-        out byte[]? encodedFrame);
+        out EncodedPacket? packet);
 
     void Flush();
 
     bool TryGetFlushedFrame(
-        out byte[]? encodedFrame);
+        out EncodedPacket? packet);
 
     void Stop();
 }

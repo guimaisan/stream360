@@ -14,5 +14,8 @@
   </ItemGroup>
   <ImportGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
     <Import Project="$(NuGetPackageRoot)vortice.mediafoundation\3.8.3\build\Vortice.MediaFoundation.props" Condition="Exists('$(NuGetPackageRoot)vortice.mediafoundation\3.8.3\build\Vortice.MediaFoundation.props')" />
+    <Import Project="$(NuGetPackageRoot)vortice.dxgi\3.8.3\build\Vortice.DXGI.props" Condition="Exists('$(NuGetPackageRoot)vortice.dxgi\3.8.3\build\Vortice.DXGI.props')" />
+    <Import Project="$(NuGetPackageRoot)vortice.direct3d11\3.8.3\build\Vortice.Direct3D11.props" Condition="Exists('$(NuGetPackageRoot)vortice.direct3d11\3.8.3\build\Vortice.Direct3D11.props')" />
+    <Import Project="$(NuGetPackageRoot)microsoft.windows.cswinrt\2.3.1\build\Microsoft.Windows.CsWinRT.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windows.cswinrt\2.3.1\build\Microsoft.Windows.CsWinRT.props')" />
   </ImportGroup>
 </Project>

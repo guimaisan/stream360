@@ -1,4 +1,7 @@
-﻿namespace Stream360.Core.Decoding;
+﻿
+using Stream360.Core.Media;
+
+namespace Stream360.Core.Decoding;
 
 public interface IVideoDecoder : IDisposable
 {
@@ -8,10 +11,10 @@ public interface IVideoDecoder : IDisposable
         int fps);
 
     void SubmitPacket(
-        ReadOnlySpan<byte> encodedData);
+        EncodedPacket packet);
 
     bool TryGetDecodedFrame(
-        out byte[]? frame);
+        out DecodedFrame? frame);
 
     void Flush();
 
