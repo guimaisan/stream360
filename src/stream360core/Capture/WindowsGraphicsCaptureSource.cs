@@ -10,7 +10,8 @@ using WinRT;
 
 namespace Stream360.Core.Capture;
 
-public sealed class WindowsGraphicsCaptureSource : ICaptureSource
+public sealed unsafe class WindowsGraphicsCaptureSource
+    : ICaptureSource
 {
     private static readonly Guid GraphicsCaptureItemIid =
         new("79C3F95B-31F7-4EC2-A464-632EF5D30760");
@@ -21,7 +22,11 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
     private ID3D11Device? _d3dDevice;
     private ID3D11DeviceContext? _d3dContext;
     private IDirect3DDevice? _winRtDevice;
+    private double _latestFrameWaitMs;
 
+    public double LatestFrameWaitMs =>
+        Volatile.Read(
+            ref _latestFrameWaitMs);
     private GraphicsCaptureItem? _captureItem;
     private Direct3D11CaptureFramePool? _framePool;
     private GraphicsCaptureSession? _session;
@@ -31,7 +36,7 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
     private CapturedFrame? _latestFrame;
 
     private long _receivedFrameCount;
-    private Exception? _lastCaptureError;
+
 
     public bool IsCapturing
     {
@@ -49,20 +54,17 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
         Interlocked.Read(
             ref _receivedFrameCount);
 
-    public Exception? LastCaptureError =>
-        _lastCaptureError;
-
     public void Start(
-        IntPtr windowHandle)
+        IntPtr monitorHandle)
     {
         if (IsCapturing)
             return;
 
-        if (windowHandle == IntPtr.Zero)
+        if (monitorHandle == IntPtr.Zero)
         {
             throw new ArgumentException(
-                "Window handle cannot be zero.",
-                nameof(windowHandle));
+                "Monitor handle cannot be zero.",
+                nameof(monitorHandle));
         }
 
         try
@@ -71,17 +73,14 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
                 ref _receivedFrameCount,
                 0);
 
-            _lastCaptureError =
-                null;
-
             CreateD3DDevice();
 
             _winRtDevice =
                 CreateWinRtDevice();
 
             _captureItem =
-                CreateCaptureItemForWindow(
-                    windowHandle);
+                CreateCaptureItemForMonitor(
+                    monitorHandle);
 
             if (!GraphicsCaptureSession.IsSupported())
             {
@@ -89,19 +88,35 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
                     "Windows Graphics Capture is not supported.");
             }
 
+            var captureItem =
+                _captureItem
+                ?? throw new InvalidOperationException(
+                    "Capture item was not created.");
+
+            var size =
+                captureItem.Size;
+
+            if (size.Width <= 0 ||
+                size.Height <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"Monitor returned invalid size " +
+                    $"{size.Width}x{size.Height}.");
+            }
+
             _framePool =
                 Direct3D11CaptureFramePool.CreateFreeThreaded(
                     _winRtDevice,
                     DirectXPixelFormat.B8G8R8A8UIntNormalized,
                     3,
-                    _captureItem.Size);
+                    size);
 
             _framePool.FrameArrived +=
                 OnFrameArrived;
 
             _session =
                 _framePool.CreateCaptureSession(
-                    _captureItem);
+                    captureItem);
 
             _session.IsCursorCaptureEnabled =
                 false;
@@ -133,6 +148,18 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
             if (frame == null)
                 return;
 
+            int width =
+                frame.ContentSize.Width;
+
+            int height =
+                frame.ContentSize.Height;
+
+            if (width <= 0 ||
+                height <= 0)
+            {
+                return;
+            }
+
             var dxgiSurface =
                 GetDxgiSurface(
                     frame.Surface);
@@ -150,10 +177,10 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
                             texture,
 
                         Width =
-                            frame.ContentSize.Width,
+                            width,
 
                         Height =
-                            frame.ContentSize.Height,
+                            height,
 
                         CaptureTimestamp =
                             Stopwatch.GetTimestamp()
@@ -174,9 +201,6 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
         }
         catch (Exception ex)
         {
-            _lastCaptureError =
-                ex;
-
             Debug.WriteLine(
                 $"Capture frame error: {ex}");
         }
@@ -198,18 +222,24 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
     }
 
     public bool TryGetLatestFrameAsBgra(
-    Span<byte> destination,
-    out int width,
-    out int height,
-    out int stride,
-    out long captureTimestamp)
+
+        Span<byte> destination,
+        out int width,
+        out int height,
+        out int stride,
+        out long captureTimestamp)
     {
+
+        var waitStart =
+    Stopwatch.GetTimestamp();
+
         width = 0;
         height = 0;
         stride = 0;
         captureTimestamp = 0;
 
-        CapturedFrame? frame = null;
+        CapturedFrame? frame =
+            null;
 
         try
         {
@@ -219,39 +249,32 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
             {
                 return false;
             }
+            _latestFrameWaitMs =
+    Stopwatch.GetElapsedTime(
+        waitStart)
+    .TotalMilliseconds;
 
-            // NV12 requires even dimensions.
-            // If Windows gives us an odd-sized content rectangle,
-            // crop the final column/row rather than resizing it.
             width =
-                frame.Width & ~1;
+                frame.Width;
 
             height =
-                frame.Height & ~1;
-
-            if (width <= 0 ||
-                height <= 0)
-            {
-                return false;
-            }
+                frame.Height;
 
             stride =
-                width * 4;
+                checked(
+                    width * 4);
 
             captureTimestamp =
                 frame.CaptureTimestamp;
 
             int requiredSize =
-                stride * height;
+                checked(
+                    stride * height);
 
             if (destination.Length <
                 requiredSize)
             {
-                throw new ArgumentException(
-                    $"Destination buffer is too small. " +
-                    $"Required {requiredSize:N0} bytes, " +
-                    $"received {destination.Length:N0} bytes.",
-                    nameof(destination));
+                return false;
             }
 
             EnsureStagingTexture(
@@ -259,6 +282,17 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
 
             if (_stagingTexture == null ||
                 _d3dContext == null)
+            {
+                return false;
+            }
+
+            var description =
+                _stagingTexture.Description;
+
+            if (description.Width <
+                    width ||
+                description.Height <
+                    height)
             {
                 return false;
             }
@@ -278,26 +312,29 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
 
             try
             {
-                unsafe
+                if (mapped.RowPitch <
+                    stride)
                 {
-                    byte* source =
-                        (byte*)mapped.DataPointer;
+                    return false;
+                }
 
-                    for (int y = 0;
-                         y < height;
-                         y++)
-                    {
-                        var sourceRow =
-                            new ReadOnlySpan<byte>(
-                                source +
-                                y * mapped.RowPitch,
-                                stride);
+                byte* source =
+                    (byte*)mapped.DataPointer;
 
-                        sourceRow.CopyTo(
-                            destination.Slice(
-                                y * stride,
-                                stride));
-                    }
+                for (int y = 0;
+                     y < height;
+                     y++)
+                {
+                    var sourceRow =
+                        new ReadOnlySpan<byte>(
+                            source +
+                            y * mapped.RowPitch,
+                            stride);
+
+                    sourceRow.CopyTo(
+                        destination.Slice(
+                            y * stride,
+                            stride));
                 }
 
                 return true;
@@ -343,6 +380,7 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
             }
 
             _stagingTexture.Dispose();
+
             _stagingTexture =
                 null;
         }
@@ -409,7 +447,8 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
         }
 
         using var dxgiDevice =
-            _d3dDevice.QueryInterface<IDXGIDevice>();
+            _d3dDevice.QueryInterface<
+                IDXGIDevice>();
 
         int hr =
             CreateDirect3D11DeviceFromDXGIDevice(
@@ -422,10 +461,19 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
                 hr);
         }
 
+        if (graphicsDevice == IntPtr.Zero)
+        {
+            throw new InvalidOperationException(
+                "CreateDirect3D11DeviceFromDXGIDevice " +
+                "returned a null device.");
+        }
+
         try
         {
-            return MarshalInterface<IDirect3DDevice>
-                .FromAbi(graphicsDevice);
+            return MarshalInterface<
+                IDirect3DDevice>
+                .FromAbi(
+                    graphicsDevice);
         }
         finally
         {
@@ -435,8 +483,8 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
     }
 
     private static GraphicsCaptureItem
-        CreateCaptureItemForWindow(
-            IntPtr windowHandle)
+        CreateCaptureItemForMonitor(
+            IntPtr monitorHandle)
     {
         var interop =
             GraphicsCaptureItem.As<
@@ -448,14 +496,14 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
         try
         {
             nativeItem =
-                interop.CreateForWindow(
-                    windowHandle,
+                interop.CreateForMonitor(
+                    monitorHandle,
                     GraphicsCaptureItemIid);
 
             if (nativeItem == IntPtr.Zero)
             {
                 throw new InvalidOperationException(
-                    "CreateForWindow returned a null pointer.");
+                    "CreateForMonitor returned a null pointer.");
             }
 
             var item =
@@ -476,9 +524,9 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
         }
     }
 
-    private static unsafe IDXGISurface
-    GetDxgiSurface(
-        IDirect3DSurface surface)
+    private static IDXGISurface
+        GetDxgiSurface(
+            IDirect3DSurface surface)
     {
         IObjectReference surfaceReference =
             ((IWinRTObject)surface).NativeObject;
@@ -503,7 +551,8 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
 
         if (hr < 0)
         {
-            Marshal.ThrowExceptionForHR(hr);
+            Marshal.ThrowExceptionForHR(
+                hr);
         }
 
         if (accessPointer == IntPtr.Zero)
@@ -545,7 +594,8 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
 
             if (hr < 0)
             {
-                Marshal.ThrowExceptionForHR(hr);
+                Marshal.ThrowExceptionForHR(
+                    hr);
             }
 
             if (nativeSurface == IntPtr.Zero)
@@ -586,55 +636,50 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
         }
 
         _session?.Dispose();
-        _session =
-            null;
+        _session = null;
 
         _framePool?.Dispose();
-        _framePool =
-            null;
+        _framePool = null;
 
-        _captureItem =
-            null;
+        _captureItem = null;
 
         lock (_sync)
         {
             _latestFrame?.Dispose();
-            _latestFrame =
-                null;
+            _latestFrame = null;
         }
 
         _stagingTexture?.Dispose();
-        _stagingTexture =
-            null;
+        _stagingTexture = null;
 
-        _winRtDevice =
-            null;
+        _winRtDevice = null;
 
         _d3dContext?.Dispose();
-        _d3dContext =
-            null;
+        _d3dContext = null;
 
         _d3dDevice?.Dispose();
-        _d3dDevice =
-            null;
+        _d3dDevice = null;
     }
 
     public void Dispose()
     {
         Stop();
     }
+
     [DllImport(
-    "d3d11.dll",
-    ExactSpelling = true)]
+        "d3d11.dll",
+        EntryPoint =
+            "CreateDirect3D11DeviceFromDXGIDevice",
+        ExactSpelling = true)]
     private static extern int
-    CreateDirect3D11DeviceFromDXGIDevice(
-        IntPtr dxgiDevice,
-        out IntPtr graphicsDevice);
-   
+        CreateDirect3D11DeviceFromDXGIDevice(
+            IntPtr dxgiDevice,
+            out IntPtr graphicsDevice);
 
     [ComImport]
     [Guid("3628E81B-3CAC-4C60-B7F4-23CE0E0C3356")]
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    [InterfaceType(
+        ComInterfaceType.InterfaceIsIUnknown)]
     private interface IGraphicsCaptureItemInterop
     {
         IntPtr CreateForWindow(
@@ -643,15 +688,6 @@ public sealed class WindowsGraphicsCaptureSource : ICaptureSource
 
         IntPtr CreateForMonitor(
             IntPtr monitor,
-            [In] Guid iid);
-    }
-    [ComImport]
-    [Guid("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1")]
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    [ComVisible(true)]
-    private interface IDirect3DDxgiInterfaceAccess
-    {
-        IntPtr GetInterface(
             [In] Guid iid);
     }
 }

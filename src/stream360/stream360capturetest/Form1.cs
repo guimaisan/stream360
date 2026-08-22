@@ -1,8 +1,8 @@
 using Stream360.Core.Capture;
 using Stream360.Core.Decoding;
-using Stream360.Core.Detection;
 using Stream360.Core.Encoder;
 using Stream360.Core.Encoding;
+using Stream360.Core.Models;
 using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
@@ -11,22 +11,25 @@ namespace Stream360.CaptureTest;
 
 public sealed class Form1 : Form
 {
-    private const int TargetFps = 60;
-    private const int TargetBitrate = 8_000_000;
+    private readonly ComboBox _displaySelector;
+    private readonly ComboBox _resolutionSelector;
+    private readonly ComboBox _fpsSelector;
+    private readonly ComboBox _bitrateSelector;
 
-    private readonly ComboBox _windowSelector;
     private readonly Button _refreshButton;
     private readonly Button _startButton;
     private readonly Button _stopButton;
+
     private readonly PictureBox _preview;
     private readonly Label _statusLabel;
     private readonly Label _statsLabel;
 
     private readonly System.Windows.Forms.Timer _displayTimer;
-    private readonly System.Windows.Forms.Timer _windowRefreshTimer;
+    private readonly System.Windows.Forms.Timer _displayRefreshTimer;
 
     private WindowsGraphicsCaptureSource? _captureSource;
-    private long _captureFrameCount;
+    private VideoProcessorConverter? _videoProcessor;
+
     private MediaFoundationEncoder? _encoder;
     private MediaFoundationDecoder? _decoder;
 
@@ -35,68 +38,42 @@ public sealed class Form1 : Form
 
     private Bitmap? _previewBitmap;
 
+    private StreamSettings _settings =
+        new();
+
+    private int _captureWidth;
+    private int _captureHeight;
+
     private long _frameIndex;
-    private long _lastCaptureTimestamp;
 
     private long _fpsWindowStart;
     private int _processedFrames;
 
-    private readonly List<double> _captureReadbackTimes = new();
-    private readonly List<double> _conversionTimes = new();
-    private readonly List<double> _encodeTimes = new();
-    private readonly List<double> _decodeTimes = new();
-    private readonly List<double> _endToEndLatencies = new();
-    private void DisplayBgra(
-    byte[] bgra,
-    int width,
-    int height,
-    int stride)
-    {
-        if (_previewBitmap == null)
-        {
-            _previewBitmap =
-                new Bitmap(
-                    width,
-                    height,
-                    PixelFormat.Format32bppArgb);
+    private long _encodedPackets;
+    private long _encodedBytes;
+    private long _decodedFrames;
 
-            _preview.Image =
-                _previewBitmap;
-        }
+    private double _latestFrameWaitMs;
+    private double _latestCaptureMs;
+    private double _latestConversionMs;
+    private double _latestEncodeMs;
+    private double _latestDecodeMs;
+    private double _latestLatencyMs;
+    private double _latestEncoderOutputWaitMs;
+    private double _latestDecoderOutputWaitMs;
+    private double _pipelineFps;
+    private double _latestLoopIntervalMs;
 
-        var bits =
-            _previewBitmap.LockBits(
-                new Rectangle(
-                    0,
-                    0,
-                    width,
-                    height),
-                ImageLockMode.WriteOnly,
-                PixelFormat.Format32bppArgb);
+    private long _lastPipelineIteration;
+    private long _frameWaitIterations;
 
-        try
-        {
-            for (int y = 0;
-                 y < height;
-                 y++)
-            {
-                Marshal.Copy(
-                    bgra,
-                    y * stride,
-                    IntPtr.Add(
-                        bits.Scan0,
-                        y * bits.Stride),
-                    width * 4);
-            }
-        }
-        finally
-        {
-            _previewBitmap.UnlockBits(
-                bits);
-        }
+    private bool _previewEnabled = false;
 
-        _preview.Invalidate();
-    }
+    private CancellationTokenSource? _pipelineCts;
+    private Task? _pipelineTask;
+
+    private readonly List<double>
+        _endToEndLatencies = new();
 
     private readonly Dictionary<long, long>
         _captureTimesByMediaTimestamp = new();
@@ -104,7 +81,7 @@ public sealed class Form1 : Form
     public Form1()
     {
         Text =
-            "Stream360 - Capture / Encode / Decode Test";
+            "Stream360 - Display Capture / H.264 Test";
 
         Width =
             1400;
@@ -119,15 +96,45 @@ public sealed class Form1 : Form
             new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 100
+                Height = 125
             };
 
-        _windowSelector =
+        _displaySelector =
             new ComboBox
             {
                 Left = 10,
                 Top = 10,
-                Width = 650,
+                Width = 260,
+                DropDownStyle =
+                    ComboBoxStyle.DropDownList
+            };
+
+        _resolutionSelector =
+            new ComboBox
+            {
+                Left = 280,
+                Top = 10,
+                Width = 150,
+                DropDownStyle =
+                    ComboBoxStyle.DropDownList
+            };
+
+        _fpsSelector =
+            new ComboBox
+            {
+                Left = 450,
+                Top = 10,
+                Width = 100,
+                DropDownStyle =
+                    ComboBoxStyle.DropDownList
+            };
+
+        _bitrateSelector =
+            new ComboBox
+            {
+                Left = 570,
+                Top = 10,
+                Width = 130,
                 DropDownStyle =
                     ComboBoxStyle.DropDownList
             };
@@ -135,7 +142,7 @@ public sealed class Form1 : Form
         _refreshButton =
             new Button
             {
-                Left = 670,
+                Left = 710,
                 Top = 10,
                 Width = 90,
                 Text = "Refresh"
@@ -144,7 +151,7 @@ public sealed class Form1 : Form
         _startButton =
             new Button
             {
-                Left = 770,
+                Left = 810,
                 Top = 10,
                 Width = 90,
                 Text = "Start"
@@ -153,7 +160,7 @@ public sealed class Form1 : Form
         _stopButton =
             new Button
             {
-                Left = 870,
+                Left = 910,
                 Top = 10,
                 Width = 90,
                 Text = "Stop",
@@ -164,18 +171,18 @@ public sealed class Form1 : Form
             new Label
             {
                 Left = 10,
-                Top = 50,
-                Width = 1050,
-                Height = 25,
-                Text = "Select a window."
+                Top = 55,
+                Width = 1300,
+                Height = 40,
+                Text = "Select a display."
             };
 
         _statsLabel =
             new Label
             {
-                Left = 1070,
-                Top = 50,
-                Width = 280,
+                Left = 10,
+                Top = 90,
+                Width = 1300,
                 Height = 25,
                 Text = "FPS: 0"
             };
@@ -185,11 +192,21 @@ public sealed class Form1 : Form
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.Black,
-                SizeMode = PictureBoxSizeMode.Zoom
+                SizeMode =
+                    PictureBoxSizeMode.Zoom
             };
 
         topPanel.Controls.Add(
-            _windowSelector);
+            _displaySelector);
+
+        topPanel.Controls.Add(
+            _resolutionSelector);
+
+        topPanel.Controls.Add(
+            _fpsSelector);
+
+        topPanel.Controls.Add(
+            _bitrateSelector);
 
         topPanel.Controls.Add(
             _refreshButton);
@@ -212,8 +229,10 @@ public sealed class Form1 : Form
         Controls.Add(
             topPanel);
 
+        PopulateSettings();
+
         _refreshButton.Click +=
-            (_, _) => RefreshWindows();
+            (_, _) => RefreshDisplays();
 
         _startButton.Click +=
             (_, _) => StartCapture();
@@ -224,24 +243,24 @@ public sealed class Form1 : Form
         _displayTimer =
             new System.Windows.Forms.Timer
             {
-                Interval = 5
+                Interval = 100
             };
 
         _displayTimer.Tick +=
-            (_, _) => ProcessLatestFrame();
+            (_, _) => UpdateUiStats();
 
         _displayTimer.Start();
 
-        _windowRefreshTimer =
+        _displayRefreshTimer =
             new System.Windows.Forms.Timer
             {
                 Interval = 3000
             };
 
-        _windowRefreshTimer.Tick +=
-            (_, _) => RefreshWindows();
+        _displayRefreshTimer.Tick +=
+            (_, _) => RefreshDisplays();
 
-        _windowRefreshTimer.Start();
+        _displayRefreshTimer.Start();
 
         FormClosed +=
             (_, _) =>
@@ -249,54 +268,103 @@ public sealed class Form1 : Form
                 StopCapture();
 
                 _displayTimer.Dispose();
-                _windowRefreshTimer.Dispose();
+                _displayRefreshTimer.Dispose();
             };
 
-        RefreshWindows();
+        RefreshDisplays();
     }
 
-    private void RefreshWindows()
+    private void PopulateSettings()
     {
-        var selected =
-            _windowSelector.SelectedItem
-            as WindowInfo;
+        _resolutionSelector.Items.Add(
+            new ResolutionOption(
+                1280,
+                720,
+                "1280 × 720"));
 
-        IntPtr selectedHandle =
-            selected?.Handle ??
+        _resolutionSelector.Items.Add(
+            new ResolutionOption(
+                1920,
+                1080,
+                "1920 × 1080"));
+
+        _resolutionSelector.Items.Add(
+            new ResolutionOption(
+                960,
+                540,
+                "960 × 540"));
+
+        _resolutionSelector.SelectedIndex =
+            0;
+
+        _fpsSelector.Items.Add(
+            30);
+
+        _fpsSelector.Items.Add(
+            60);
+
+        _fpsSelector.SelectedItem =
+            60;
+
+        _bitrateSelector.Items.Add(
+            new BitrateOption(
+                4_000_000,
+                "4 Mbps"));
+
+        _bitrateSelector.Items.Add(
+            new BitrateOption(
+                8_000_000,
+                "8 Mbps"));
+
+        _bitrateSelector.Items.Add(
+            new BitrateOption(
+                12_000_000,
+                "12 Mbps"));
+
+        _bitrateSelector.SelectedIndex =
+            1;
+    }
+
+    private void RefreshDisplays()
+    {
+        var previous =
+            _displaySelector.SelectedItem
+            as DisplayInfo;
+
+        IntPtr previousHandle =
+            previous?.MonitorHandle ??
             IntPtr.Zero;
 
-        _windowSelector.Items.Clear();
+        _displaySelector.Items.Clear();
 
-        var windows =
-            EnumerateWindows().ToList();
-
-        foreach (var window in windows)
+        foreach (var display in
+                 EnumerateDisplays())
         {
-            _windowSelector.Items.Add(
-                window);
+            _displaySelector.Items.Add(
+                display);
         }
 
-        if (windows.Count == 0)
+        if (_displaySelector.Items.Count == 0)
         {
             _statusLabel.Text =
-                "No visible windows found.";
+                "No displays found.";
 
             return;
         }
 
-        if (selectedHandle !=
+        if (previousHandle !=
             IntPtr.Zero)
         {
             for (int i = 0;
-                 i < _windowSelector.Items.Count;
+                 i < _displaySelector.Items.Count;
                  i++)
             {
-                if (_windowSelector.Items[i]
-                    is WindowInfo info &&
-                    info.Handle ==
-                    selectedHandle)
+                if (_displaySelector.Items[i]
+                    is DisplayInfo info &&
+                    info.MonitorHandle ==
+                    previousHandle)
                 {
-                    _windowSelector.SelectedIndex =
+                    _displaySelector.SelectedIndex =
                         i;
 
                     return;
@@ -304,35 +372,73 @@ public sealed class Form1 : Form
             }
         }
 
-        for (int i = 0;
-             i < _windowSelector.Items.Count;
-             i++)
-        {
-            if (_windowSelector.Items[i]
-                is WindowInfo info &&
-                info.Title.Contains(
-                    "Chrome",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                _windowSelector.SelectedIndex =
-                    i;
+        var primary =
+            Screen.PrimaryScreen;
 
-                return;
+        if (primary != null)
+        {
+            for (int i = 0;
+                 i < _displaySelector.Items.Count;
+                 i++)
+            {
+                if (_displaySelector.Items[i]
+                    is DisplayInfo info &&
+                    info.DeviceName ==
+                    primary.DeviceName)
+                {
+                    _displaySelector.SelectedIndex =
+                        i;
+
+                    return;
+                }
             }
         }
 
-        _windowSelector.SelectedIndex =
+        _displaySelector.SelectedIndex =
             0;
     }
 
     private void StartCapture()
     {
-        if (_windowSelector.SelectedItem
-            is not WindowInfo window)
+        if (_displaySelector.SelectedItem
+            is not DisplayInfo display)
         {
             MessageBox.Show(
                 this,
-                "Select a window first.",
+                "Select a display first.",
+                "Stream360");
+
+            return;
+        }
+
+        if (_resolutionSelector.SelectedItem
+            is not ResolutionOption resolution)
+        {
+            MessageBox.Show(
+                this,
+                "Select a resolution.",
+                "Stream360");
+
+            return;
+        }
+
+        if (_fpsSelector.SelectedItem
+            is not int fps)
+        {
+            MessageBox.Show(
+                this,
+                "Select an FPS value.",
+                "Stream360");
+
+            return;
+        }
+
+        if (_bitrateSelector.SelectedItem
+            is not BitrateOption bitrate)
+        {
+            MessageBox.Show(
+                this,
+                "Select a bitrate.",
                 "Stream360");
 
             return;
@@ -342,32 +448,39 @@ public sealed class Form1 : Form
         {
             StopCapture();
 
+            _settings =
+                new StreamSettings
+                {
+                    Width =
+                        resolution.Width,
+
+                    Height =
+                        resolution.Height,
+
+                    Fps =
+                        fps,
+
+                    Bitrate =
+                        bitrate.Bitrate
+                };
+
             _captureSource =
                 new WindowsGraphicsCaptureSource();
 
             _captureSource.Start(
-                window.Handle);
+                display.MonitorHandle);
 
-            int width =
+            _captureWidth =
                 _captureSource.Width;
 
-            int height =
+            _captureHeight =
                 _captureSource.Height;
 
-            if (width <= 0 ||
-                height <= 0)
+            if (_captureWidth <= 0 ||
+                _captureHeight <= 0)
             {
                 throw new InvalidOperationException(
-                    "Capture returned an invalid size.");
-            }
-
-            if ((width & 1) != 0 ||
-                (height & 1) != 0)
-            {
-                throw new InvalidOperationException(
-                    $"Capture size {width}x{height} " +
-                    "is not compatible with NV12. " +
-                    "Resize the window to an even resolution.");
+                    "The display capture returned an invalid size.");
             }
 
             var encoders =
@@ -385,6 +498,14 @@ public sealed class Form1 : Form
                     "No H.264 hardware encoder was found.");
             }
 
+            _videoProcessor =
+                new VideoProcessorConverter(
+                    _captureWidth,
+                    _captureHeight,
+                    _settings.Width,
+                    _settings.Height,
+                    _settings.Fps);
+
             _encoder =
                 new MediaFoundationEncoder(
                     h264);
@@ -393,42 +514,44 @@ public sealed class Form1 : Form
                 new MediaFoundationDecoder();
 
             _encoder.Initialize(
-                width,
-                height,
-                TargetFps,
-                TargetBitrate);
+                _settings.Width,
+                _settings.Height,
+                _settings.Fps,
+                _settings.Bitrate);
 
             _decoder.Initialize(
-                width,
-                height,
-                TargetFps);
+                _settings.Width,
+                _settings.Height,
+                _settings.Fps);
 
             _bgraBuffer =
-    new byte[
-        width *
-        height *
-        4];
+                new byte[
+                    checked(
+                        _captureWidth *
+                        _captureHeight *
+                        4)];
 
             _nv12Buffer =
                 new byte[
-                    width *
-                    height *
-                    3 /
-                    2];
-
-            _previewBitmap?.Dispose();
+                    checked(
+                        _settings.Width *
+                        _settings.Height *
+                        3 /
+                        2)];
 
             _previewBitmap =
                 new Bitmap(
-                    width,
-                    height,
+                    _settings.Width,
+                    _settings.Height,
                     PixelFormat.Format32bppArgb);
 
             _preview.Image =
-                _previewBitmap;
+                _previewEnabled
+                    ? _previewBitmap
+                    : null;
 
-            _frameIndex = 0;
-            _lastCaptureTimestamp = 0;
+            _frameIndex =
+                0;
 
             _fpsWindowStart =
                 Stopwatch.GetTimestamp();
@@ -436,16 +559,72 @@ public sealed class Form1 : Form
             _processedFrames =
                 0;
 
-            _captureReadbackTimes.Clear();
-            _conversionTimes.Clear();
-            _encodeTimes.Clear();
-            _decodeTimes.Clear();
+            _encodedPackets =
+                0;
+
+            _encodedBytes =
+                0;
+
+            _decodedFrames =
+                0;
+
+            _latestFrameWaitMs =
+                0;
+
+            _latestCaptureMs =
+                0;
+
+            _latestConversionMs =
+                0;
+
+            _latestEncodeMs =
+                0;
+
+            _latestDecodeMs =
+                0;
+
+            _latestLatencyMs =
+                0;
+
+            _latestEncoderOutputWaitMs =
+                0;
+
+            _latestDecoderOutputWaitMs =
+                0;
+
+            _pipelineFps =
+                0;
+
+            _latestLoopIntervalMs =
+                0;
+
+            _lastPipelineIteration =
+                0;
+
+            _frameWaitIterations =
+                0;
+
             _endToEndLatencies.Clear();
             _captureTimesByMediaTimestamp.Clear();
 
             _statusLabel.Text =
-                $"Streaming {window.Title} | " +
-                $"{width}x{height} @ {TargetFps} FPS";
+                $"Display {display.Name} | " +
+                $"capture {_captureWidth}x{_captureHeight} → " +
+                $"stream {_settings.Width}x{_settings.Height} @ " +
+                $"{_settings.Fps} FPS | " +
+                $"{_settings.Bitrate / 1_000_000} Mbps | " +
+                $"H.264: {h264.Name}";
+
+            _statsLabel.Text =
+                "Pipeline: 0 FPS";
+
+            _pipelineCts =
+                new CancellationTokenSource();
+
+            _pipelineTask =
+                Task.Run(
+                    () => RunPipeline(
+                        _pipelineCts.Token));
 
             _startButton.Enabled =
                 false;
@@ -460,89 +639,297 @@ public sealed class Form1 : Form
             MessageBox.Show(
                 this,
                 ex.ToString(),
-                "Stream360 pipeline failed",
+                "Stream360 capture failed",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
     }
 
-    private void ProcessLatestFrame()
+    private void RunPipeline(
+        CancellationToken cancellationToken)
     {
         if (_captureSource == null ||
-            !_captureSource.IsCapturing ||
-            _bgraBuffer == null)
+            _videoProcessor == null ||
+            _encoder == null ||
+            _decoder == null ||
+            _bgraBuffer == null ||
+            _nv12Buffer == null)
         {
             return;
         }
 
-        var captureStart =
+        long fpsStart =
             Stopwatch.GetTimestamp();
 
-        if (!_captureSource.TryGetLatestFrameAsBgra(
-                _bgraBuffer,
-                out int width,
-                out int height,
-                out int stride,
-                out long captureTimestamp))
+        int processedFrames =
+            0;
+
+        while (!cancellationToken.IsCancellationRequested)
         {
-            return;
-        }
+            long loopStart =
+                Stopwatch.GetTimestamp();
 
-        _captureReadbackTimes.Add(
-            Stopwatch.GetElapsedTime(
-                captureStart)
-            .TotalMilliseconds);
+            if (_lastPipelineIteration != 0)
+            {
+                _latestLoopIntervalMs =
+                    Stopwatch.GetElapsedTime(
+                        _lastPipelineIteration)
+                    .TotalMilliseconds;
+            }
 
-        DisplayBgra(
-            _bgraBuffer,
-            width,
-            height,
-            stride);
+            _lastPipelineIteration =
+                loopStart;
 
-        if (_lastCaptureTimestamp != 0)
-        {
-            double interval =
+            // -----------------------------------------------------
+            // BGRA readback + frame availability wait
+            // -----------------------------------------------------
+
+            var frameWaitStart =
+                Stopwatch.GetTimestamp();
+
+            bool gotFrame =
+                _captureSource.TryGetLatestFrameAsBgra(
+                    _bgraBuffer,
+                    out int captureWidth,
+                    out int captureHeight,
+                    out int stride,
+                    out long captureTimestamp);
+
+            _latestFrameWaitMs =
                 Stopwatch.GetElapsedTime(
-                    _lastCaptureTimestamp)
+                    frameWaitStart)
                 .TotalMilliseconds;
 
-            _statusLabel.Text =
-                $"RAW CAPTURE {width}x{height} | " +
-                $"interval {interval:F2} ms";
-        }
+            if (!gotFrame)
+            {
+                _frameWaitIterations++;
+                Thread.Yield();
+                continue;
+            }
 
-        _lastCaptureTimestamp =
-            captureTimestamp;
+            if (captureWidth != _captureWidth ||
+                captureHeight != _captureHeight)
+            {
+                continue;
+            }
 
-        _processedFrames++;
-
-        double fpsElapsed =
-            Stopwatch.GetElapsedTime(
-                _fpsWindowStart)
-            .TotalSeconds;
-
-        if (fpsElapsed >= 1.0)
-        {
-            double fps =
-                _processedFrames /
-                fpsElapsed;
-
-            _statsLabel.Text =
-                $"Capture FPS: {fps:F1}";
-
-            _processedFrames =
+            _latestCaptureMs =
                 0;
 
-            _fpsWindowStart =
+            // -----------------------------------------------------
+            // BGRA -> NV12
+            // -----------------------------------------------------
+
+            var conversionStart =
                 Stopwatch.GetTimestamp();
+
+            if (!_videoProcessor.Convert(
+                    _bgraBuffer,
+                    _nv12Buffer,
+                    captureTimestamp,
+                    out int nv12Length))
+            {
+                continue;
+            }
+
+            _latestConversionMs =
+                Stopwatch.GetElapsedTime(
+                    conversionStart)
+                .TotalMilliseconds;
+
+            if (nv12Length <= 0)
+            {
+                continue;
+            }
+
+            // -----------------------------------------------------
+            // Timestamp
+            // -----------------------------------------------------
+
+            long frameDuration =
+                10_000_000L /
+                _settings.Fps;
+
+            long mediaTimestamp =
+                _frameIndex *
+                frameDuration;
+
+            _captureTimesByMediaTimestamp[
+                mediaTimestamp] =
+                captureTimestamp;
+
+            _frameIndex++;
+
+            // -----------------------------------------------------
+            // H.264 encode
+            // -----------------------------------------------------
+
+            var encodeStart =
+                Stopwatch.GetTimestamp();
+
+            _encoder.SubmitFrame(
+                _nv12Buffer);
+
+            _latestEncodeMs =
+                Stopwatch.GetElapsedTime(
+                    encodeStart)
+                .TotalMilliseconds;
+
+            // -----------------------------------------------------
+            // Encoder output
+            // -----------------------------------------------------
+
+            var encoderOutputStart =
+                Stopwatch.GetTimestamp();
+
+            while (_encoder.TryGetEncodedFrame(
+                       out var encodedPacket))
+            {
+                if (encodedPacket == null)
+                {
+                    continue;
+                }
+
+                _encodedPackets++;
+
+                _encodedBytes +=
+                    encodedPacket.Data.Length;
+
+                // -------------------------------------------------
+                // H.264 decode
+                // -------------------------------------------------
+
+                var decodeStart =
+                    Stopwatch.GetTimestamp();
+
+                _decoder.SubmitPacket(
+                    encodedPacket);
+
+                _latestDecodeMs =
+                    Stopwatch.GetElapsedTime(
+                        decodeStart)
+                    .TotalMilliseconds;
+
+                // -------------------------------------------------
+                // Decoder output
+                // -------------------------------------------------
+
+                var decoderOutputStart =
+                    Stopwatch.GetTimestamp();
+
+                while (_decoder.TryGetDecodedFrame(
+                           out var decodedFrame))
+                {
+                    if (decodedFrame == null)
+                    {
+                        continue;
+                    }
+
+                    _decodedFrames++;
+
+                    if (_captureTimesByMediaTimestamp
+                        .TryGetValue(
+                            decodedFrame.Timestamp,
+                            out long originalCapture))
+                    {
+                        _latestLatencyMs =
+                            Stopwatch.GetElapsedTime(
+                                originalCapture)
+                            .TotalMilliseconds;
+
+                        _endToEndLatencies.Add(
+                            _latestLatencyMs);
+
+                        _captureTimesByMediaTimestamp
+                            .Remove(
+                                decodedFrame.Timestamp);
+                    }
+
+                    if (_previewEnabled)
+                    {
+                        var frameCopy =
+                            decodedFrame.Data.ToArray();
+
+                        try
+                        {
+                            BeginInvoke(
+                                () =>
+                                {
+                                    if (!IsDisposed)
+                                    {
+                                        DisplayNv12(
+                                            frameCopy,
+                                            _settings.Width,
+                                            _settings.Height);
+                                    }
+                                });
+                        }
+                        catch
+                        {
+                            // Form may be shutting down.
+                        }
+                    }
+                }
+
+                _latestDecoderOutputWaitMs =
+                    Stopwatch.GetElapsedTime(
+                        decoderOutputStart)
+                    .TotalMilliseconds;
+            }
+
+            _latestEncoderOutputWaitMs =
+                Stopwatch.GetElapsedTime(
+                    encoderOutputStart)
+                .TotalMilliseconds;
+
+            // -----------------------------------------------------
+            // Pipeline FPS
+            // -----------------------------------------------------
+
+            processedFrames++;
+
+            double elapsed =
+                Stopwatch.GetElapsedTime(
+                    fpsStart)
+                .TotalSeconds;
+
+            if (elapsed >= 1.0)
+            {
+                _pipelineFps =
+                    processedFrames /
+                    elapsed;
+
+                processedFrames =
+                    0;
+
+                fpsStart =
+                    Stopwatch.GetTimestamp();
+            }
         }
     }
 
-    private double GetLatestLatency()
+    private void UpdateUiStats()
     {
-        return _endToEndLatencies.Count == 0
-            ? 0
-            : _endToEndLatencies[^1];
+        if (_captureSource == null ||
+            !_captureSource.IsCapturing)
+        {
+            return;
+        }
+
+        _statusLabel.Text =
+            $"Loop {_latestLoopIntervalMs:F2} ms | " +
+            $"Frame wait {_latestFrameWaitMs:F2} ms | " +
+            $"Convert {_latestConversionMs:F2} ms | " +
+            $"Encode {_latestEncodeMs:F2} ms | " +
+            $"Encoder out {_latestEncoderOutputWaitMs:F2} ms";
+
+        _statsLabel.Text =
+            $"Decode {_latestDecodeMs:F2} ms | " +
+            $"Decoder out {_latestDecoderOutputWaitMs:F2} ms | " +
+            $"Latency {_latestLatencyMs:F2} ms | " +
+            $"FPS {_pipelineFps:F1} | " +
+            $"Encoded {_encodedPackets} | " +
+            $"Decoded {_decodedFrames}";
     }
 
     private void DisplayNv12(
@@ -551,7 +938,24 @@ public sealed class Form1 : Form
         int height)
     {
         if (_previewBitmap == null)
+        {
             return;
+        }
+
+        if (_previewBitmap.Width != width ||
+            _previewBitmap.Height != height)
+        {
+            _previewBitmap.Dispose();
+
+            _previewBitmap =
+                new Bitmap(
+                    width,
+                    height,
+                    PixelFormat.Format32bppArgb);
+
+            _preview.Image =
+                _previewBitmap;
+        }
 
         var bits =
             _previewBitmap.LockBits(
@@ -566,7 +970,8 @@ public sealed class Form1 : Form
         try
         {
             int yPlaneSize =
-                width * height;
+                width *
+                height;
 
             unsafe
             {
@@ -577,9 +982,18 @@ public sealed class Form1 : Form
                      y < height;
                      y++)
                 {
-                    int row =
+                    int yRow =
                         y *
                         width;
+
+                    int uvRow =
+                        (y / 2) *
+                        width;
+
+                    byte* destinationRow =
+                        destination +
+                        y *
+                        bits.Stride;
 
                     for (int x = 0;
                          x < width;
@@ -587,12 +1001,8 @@ public sealed class Form1 : Form
                     {
                         int yValue =
                             nv12[
-                                row +
+                                yRow +
                                 x];
-
-                        int uvRow =
-                            (y / 2) *
-                            width;
 
                         int uvIndex =
                             yPlaneSize +
@@ -600,51 +1010,67 @@ public sealed class Form1 : Form
                             (x & ~1);
 
                         int u =
-                            nv12[uvIndex] -
-                            128;
+                            nv12[
+                                uvIndex];
 
                         int v =
-                            nv12[uvIndex + 1] -
-                            128;
+                            nv12[
+                                uvIndex + 1];
 
-                        int c =
+                        double c =
                             yValue -
-                            16;
+                            16.0;
+
+                        double d =
+                            u -
+                            128.0;
+
+                        double e =
+                            v -
+                            128.0;
 
                         if (c < 0)
+                        {
                             c = 0;
+                        }
 
                         int r =
-                            (298 * c +
-                             459 * v +
-                             128) >> 8;
+                            (int)Math.Round(
+                                1.16438356 *
+                                c +
+                                1.79274107 *
+                                e);
 
                         int g =
-                            (298 * c -
-                             55 * u -
-                             136 * v +
-                             128) >> 8;
+                            (int)Math.Round(
+                                1.16438356 *
+                                c -
+                                0.21324861 *
+                                d -
+                                0.53290933 *
+                                e);
 
                         int b =
-                            (298 * c +
-                             541 * u +
-                             128) >> 8;
+                            (int)Math.Round(
+                                1.16438356 *
+                                c +
+                                2.11240179 *
+                                d);
 
                         int index =
-                            y *
-                            bits.Stride +
-                            x * 4;
+                            x *
+                            4;
 
-                        destination[index] =
+                        destinationRow[index] =
                             ClampToByte(b);
 
-                        destination[index + 1] =
+                        destinationRow[index + 1] =
                             ClampToByte(g);
 
-                        destination[index + 2] =
+                        destinationRow[index + 2] =
                             ClampToByte(r);
 
-                        destination[index + 3] =
+                        destinationRow[index + 3] =
                             255;
                     }
                 }
@@ -659,36 +1085,72 @@ public sealed class Form1 : Form
         _preview.Invalidate();
     }
 
-    private static byte ClampToByte(
-        int value)
-    {
-        if (value < 0)
-            return 0;
-
-        if (value > 255)
-            return 255;
-
-        return (byte)value;
-    }
-
     private void StopCapture()
     {
+        _pipelineCts?.Cancel();
+
+        try
+        {
+            _pipelineTask?.Wait(
+                TimeSpan.FromSeconds(2));
+        }
+        catch
+        {
+            // Ignore worker shutdown errors.
+        }
+
+        _pipelineTask =
+            null;
+
+        _pipelineCts?.Dispose();
+        _pipelineCts =
+            null;
+
         _encoder?.Dispose();
-        _encoder = null;
+        _encoder =
+            null;
 
         _decoder?.Dispose();
-        _decoder = null;
+        _decoder =
+            null;
+
+        _videoProcessor?.Dispose();
+        _videoProcessor =
+            null;
 
         _captureSource?.Dispose();
-        _captureSource = null;
+        _captureSource =
+            null;
 
-        _bgraBuffer = null;
-        _nv12Buffer = null;
+        _bgraBuffer =
+            null;
 
-        _preview.Image = null;
+        _nv12Buffer =
+            null;
+
+        _preview.Image =
+            null;
 
         _previewBitmap?.Dispose();
-        _previewBitmap = null;
+        _previewBitmap =
+            null;
+
+        _captureWidth =
+            0;
+
+        _captureHeight =
+            0;
+
+        _frameIndex =
+            0;
+
+        _lastPipelineIteration =
+            0;
+
+        _frameWaitIterations =
+            0;
+
+        _captureTimesByMediaTimestamp.Clear();
 
         _startButton.Enabled =
             true;
@@ -700,123 +1162,125 @@ public sealed class Form1 : Form
         {
             _statusLabel.Text =
                 "Stopped.";
+
+            _statsLabel.Text =
+                "Pipeline: 0 FPS";
         }
     }
 
-    private static IEnumerable<WindowInfo>
-        EnumerateWindows()
+    private static IEnumerable<DisplayInfo>
+        EnumerateDisplays()
     {
-        var windows =
-            new List<WindowInfo>();
+        foreach (var screen in
+                 Screen.AllScreens)
+        {
+            int x =
+                screen.Bounds.Left + 1;
 
-        EnumWindows(
-            (handle, _) =>
+            int y =
+                screen.Bounds.Top + 1;
+
+            IntPtr monitor =
+                MonitorFromPoint(
+                    new POINT
+                    {
+                        X = x,
+                        Y = y
+                    },
+                    MonitorDefaultToNearest);
+
+            if (monitor == IntPtr.Zero)
             {
-                if (!IsWindowVisible(handle))
-                    return true;
+                continue;
+            }
 
-                if (handle ==
-                    GetShellWindow())
-                    return true;
+            string name =
+                string.IsNullOrWhiteSpace(
+                    screen.DeviceName)
+                    ? $"Display {screen.GetHashCode()}"
+                    : screen.DeviceName;
 
-                int length =
-                    GetWindowTextLength(handle);
-
-                if (length <= 0)
-                    return true;
-
-                var titleBuilder =
-                    new System.Text.StringBuilder(
-                        length + 1);
-
-                GetWindowText(
-                    handle,
-                    titleBuilder,
-                    titleBuilder.Capacity);
-
-                string title =
-                    titleBuilder.ToString();
-
-                if (string.IsNullOrWhiteSpace(title))
-                    return true;
-
-                GetWindowThreadProcessId(
-                    handle,
-                    out uint processId);
-
-                string processName;
-
-                try
-                {
-                    processName =
-                        Process.GetProcessById(
-                            (int)processId)
-                        .ProcessName;
-                }
-                catch
-                {
-                    processName =
-                        "Unknown";
-                }
-
-                windows.Add(
-                    new WindowInfo(
-                        handle,
-                        title,
-                        processName));
-
-                return true;
-            },
-            IntPtr.Zero);
-
-        return windows.OrderBy(
-            window => window.Title,
-            StringComparer.OrdinalIgnoreCase);
+            yield return
+                new DisplayInfo(
+                    name,
+                    screen.Bounds,
+                    screen.DeviceName,
+                    monitor,
+                    screen.Primary);
+        }
     }
 
-    [DllImport(
-        "user32.dll",
-        SetLastError = true)]
-    private static extern bool EnumWindows(
-        EnumWindowsProc lpEnumFunc,
-        IntPtr lParam);
+    private static byte ClampToByte(
+        int value)
+    {
+        if (value < 0)
+        {
+            return 0;
+        }
 
-    [DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(
-        IntPtr hWnd);
+        if (value > 255)
+        {
+            return 255;
+        }
 
-    [DllImport("user32.dll")]
-    private static extern int GetWindowTextLength(
-        IntPtr hWnd);
+        return (byte)value;
+    }
 
-    [DllImport(
-        "user32.dll",
-        CharSet = CharSet.Unicode)]
-    private static extern int GetWindowText(
-        IntPtr hWnd,
-        System.Text.StringBuilder lpString,
-        int nMaxCount);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(
-        IntPtr hWnd,
-        out uint lpdwProcessId);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetShellWindow();
-
-    private delegate bool EnumWindowsProc(
-        IntPtr hWnd,
-        IntPtr lParam);
-
-    private sealed record WindowInfo(
-        IntPtr Handle,
-        string Title,
-        string ProcessName)
+    private sealed record ResolutionOption(
+        int Width,
+        int Height,
+        string Name)
     {
         public override string ToString()
         {
-            return $"{Title}  [{ProcessName}]";
+            return Name;
         }
     }
+
+    private sealed record BitrateOption(
+        int Bitrate,
+        string Name)
+    {
+        public override string ToString()
+        {
+            return Name;
+        }
+    }
+
+    private sealed record DisplayInfo(
+        string Name,
+        Rectangle Bounds,
+        string DeviceName,
+        IntPtr MonitorHandle,
+        bool IsPrimary)
+    {
+        public override string ToString()
+        {
+            return
+                $"{Name}" +
+                (IsPrimary
+                    ? " (Primary)"
+                    : string.Empty) +
+                $" — {Bounds.Width}×{Bounds.Height}";
+        }
+    }
+
+    private const uint MonitorDefaultToNearest =
+        0x00000002;
+
+    [StructLayout(
+        LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport(
+        "user32.dll",
+        ExactSpelling = true)]
+    private static extern IntPtr
+        MonitorFromPoint(
+            POINT point,
+            uint flags);
 }
